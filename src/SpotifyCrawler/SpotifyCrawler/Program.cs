@@ -1,51 +1,43 @@
-﻿using SpotifyCrawler.Output;
+﻿using Microsoft.EntityFrameworkCore.Storage;
+using SpotifyCrawler.Data;
+using SpotifyCrawler.Output;
 using SpotifyCrawler.Ranking;
 using SpotifyCrawler.Ranking.Model;
-using System.Text.Json;
 
-List<PodcastRanking> rankings = new();
+using SqliteContext dbContext = new();
+dbContext.Database.EnsureCreated();
+using IDbContextTransaction transaction = dbContext.Database.BeginTransaction();
+
 using RankingClient rankingClient = new();
+
+PodcastDataSet dataSet = new(DateTime.UtcNow)
+{
+    Rankings = new List<PodcastRanking>()
+};
+dbContext.DataSets.Add(dataSet);
+dbContext.SaveChanges();
+
 foreach (CountryCode country in Enum.GetValues<CountryCode>())
 {
-    RankedPodcast[] rankingList = rankingClient.GetRankingForCountry(country);
-    PodcastRanking ranking = new(country, rankingList);
-    rankings.Add(ranking);
-}
-DataRoot root = new(DateTime.UtcNow, rankings);
-
-const string outDir = "data";
-
-Directory.CreateDirectory(outDir);
-
-using Stream output = File.OpenWrite(Path.Combine(outDir, $"spotify-rankings.{root.CollectedAt:yyyy-MM-dd+HH-mm-ss}.json"));
-JsonSerializer.Serialize(output, root);
-
-DataRoot dummy = new
-(
-    DateTime.UtcNow,
-    new List<PodcastRanking>()
+    PodcastRanking ranking = rankingClient.GetRankingForCountry(dbContext, country);
+    dataSet.Rankings.Add(ranking);
+    int changed = dbContext.SaveChanges();
+    Console.WriteLine($"{changed} entries insered!");
+    foreach (GenreType genre in Enum.GetValues<GenreType>())
     {
-        new PodcastRanking
-        (
-            CountryCode.UnitedStates, 
-            new RankedPodcast[]
+        if (genre is not GenreType.All and not GenreType.Unknown)
+        {
+            PodcastRanking? genreRanking = rankingClient.GetRankingForCountry(dbContext, country, genre);
+            if (genreRanking is null)
             {
-                new RankedPodcast
-                (
-                    "spotify:show:4rOoJ6Egrf8K2IrywzwOMk",
-                    "UNCHANGED",
-                    "The Joe Rogan Experience",
-                    "Joe Rogan",
-                    "https://i.scdn.co/image/d3ae59a048dff7e95109aec18803f22bebe82d2f",
-                    "The official podcast of comedian Joe Rogan. Follow The Joe Rogan Clips show page for some of the best moments from the episodes."
-                )
-                {
-                    Rank = 1
-                }
+                Console.WriteLine($"Failed to get ranking for {country} -> {genre}");
+                continue;
             }
-        )
+            dataSet.Rankings.Add(genreRanking);
+            changed = dbContext.SaveChanges();
+            Console.WriteLine($"{changed} entries insered!");
+        }
     }
-);
-
-using Stream dummyOutput = File.OpenWrite(Path.Combine(outDir, "spotify-rankings.0000-structure.json"));
-JsonSerializer.Serialize(dummyOutput, dummy, new JsonSerializerOptions() { WriteIndented = true });
+}
+transaction.Commit();
+return;
