@@ -63,14 +63,14 @@ public sealed class SpotifyClient : IDisposable
 
     private int delay = 0;
 
-    public bool AddEpisodes(SqliteContext dbContext, Podcast podcast, CountryCode market)
+    public bool TryFetchEpisodes(SqliteContext dbContext, Podcast podcast)
     {
         const int RETRY_COUNT = 10;
         for (int showRetry = 0; showRetry < RETRY_COUNT; showRetry++)
         {
             string showId = podcast.ShowUri[^22..];
-            string marketCode = market.GetAttributeValue<CountryCode, JsonValueAttribute>(attr => attr.Value)?.ToUpperInvariant()
-                ?? throw new InvalidOperationException($"unable to retrieve JSON value of market '{market}'");
+            string marketCode = podcast.Market.GetAttributeValue<CountryCode, JsonValueAttribute>(attr => attr.Value)?.ToUpperInvariant()
+                ?? throw new InvalidOperationException($"unable to retrieve JSON value of market '{podcast.Market}'");
             string requestUri = $"/v1/shows/{showId}?market={marketCode}";
             using HttpRequestMessage showRequest = new(HttpMethod.Get, $"/v1/shows/{showId}?market={marketCode}");
             using HttpResponseMessage showResponse = _httpClient.Send(showRequest);

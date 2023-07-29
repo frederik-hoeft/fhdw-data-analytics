@@ -10,19 +10,20 @@ using SqliteContext dbContext = new();
 dbContext.Database.EnsureCreated();
 if (!dbContext.Rankings.Any())
 {
-    using IDbContextTransaction transaction = dbContext.Database.BeginTransaction();
-
     using RankingClient rankingClient = new();
 
+    using IDbContextTransaction transaction = dbContext.Database.BeginTransaction();
     PodcastDataSet dataSet = new(DateTime.UtcNow)
     {
         Rankings = new List<PodcastRanking>()
     };
     dbContext.DataSets.Add(dataSet);
     dbContext.SaveChanges();
+    transaction.Commit();
 
     foreach (CountryCode country in Enum.GetValues<CountryCode>())
     {
+        using IDbContextTransaction countryTransaction = dbContext.Database.BeginTransaction();
         PodcastRanking ranking = rankingClient.GetRankingForCountry(dbContext, country);
         dataSet.Rankings.Add(ranking);
         int changed = dbContext.SaveChanges();
@@ -42,9 +43,8 @@ if (!dbContext.Rankings.Any())
                 Console.WriteLine($"{changed} entries written to DB");
             }
         }
+        countryTransaction.Commit();
     }
-    Console.WriteLine("Committing transaction...");
-    transaction.Commit();
 }
 Console.WriteLine("DB already contains ranking information! skipping...");
 Console.WriteLine("Fetching episode information...");
@@ -62,7 +62,7 @@ if (podcasts.Count > 0)
     {
         Podcast podcast = podcasts[i];
         using IDbContextTransaction episodeTransaction = dbContext.Database.BeginTransaction();
-        bool success = spotifyClient.AddEpisodes(dbContext, podcast, CountryCode.UnitedStates);
+        bool success = spotifyClient.TryFetchEpisodes(dbContext, podcast);
         if (success)
         {
             Console.WriteLine($"Fetched episodes for podcast {i + 1} of {podcasts.Count}!");

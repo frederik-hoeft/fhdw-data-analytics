@@ -37,6 +37,13 @@ public class SqliteContext : DbContext
                 v => EnumExtensions.ParseFromAttribute<CountryCode, JsonValueAttribute>(v!, attr => attr.Value));
 
         modelBuilder
+            .Entity<Podcast>()
+            .Property(e => e.Market)
+            .HasConversion(
+                v => v.GetAttributeValue<CountryCode, JsonValueAttribute>(attr => attr.Value),
+                v => EnumExtensions.ParseFromAttribute<CountryCode, JsonValueAttribute>(v!, attr => attr.Value));
+
+        modelBuilder
             .Entity<PodcastRanking>()
             .Property(e => e.Genre)
             .HasConversion(

@@ -52,6 +52,7 @@ public sealed class RankingClient : IDisposable
                 podcast.ShowDescription = _sanitizer.EscapeToAscii(podcast.ShowDescription);
                 podcast.ShowName = _sanitizer.EscapeToAscii(podcast.ShowName);
                 podcast.ShowPublisher = _sanitizer.EscapeToAscii(podcast.ShowPublisher);
+                podcast.Market = countryCode;
                 dbContext.Add(podcast);
             }
             ranking.Podcasts.Add(new RankedPodcast(i + 1)

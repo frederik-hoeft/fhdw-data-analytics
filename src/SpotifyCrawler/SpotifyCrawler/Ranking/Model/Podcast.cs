@@ -25,6 +25,9 @@ public record Podcast
 
     public bool IsExplicit { get; set; }
 
+    [Required]
+    public CountryCode Market { get; set; }
+
     [Key]
     public int Id { get; set; }
 
