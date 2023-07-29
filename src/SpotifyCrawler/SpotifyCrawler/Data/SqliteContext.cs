@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using SpotifyCrawler.Attributes;
 using SpotifyCrawler.Output;
 using SpotifyCrawler.Ranking.Model;
+using SpotifyCrawler.SpotifyApi.Models.GetEpisodes;
 
 namespace SpotifyCrawler.Data;
 
@@ -15,6 +16,10 @@ public class SqliteContext : DbContext
     public DbSet<RankedPodcast> RankedPodcasts { get; set; }
 
     public DbSet<Podcast> Podcasts { get; set; }
+
+    public DbSet<PodcastEpisode> Episodes { get; set; }
+
+    public DbSet<Image> Images { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
         optionsBuilder

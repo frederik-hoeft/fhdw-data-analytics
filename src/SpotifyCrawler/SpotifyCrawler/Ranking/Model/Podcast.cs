@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SpotifyCrawler.Data;
+using SpotifyCrawler.SpotifyApi.Models.GetEpisodes;
 using System.ComponentModel.DataAnnotations;
 
 namespace SpotifyCrawler.Ranking.Model;
@@ -22,6 +23,10 @@ public record Podcast
 
     public GenreType Genre { get; set; }
 
+    public bool IsExplicit { get; set; }
+
     [Key]
     public int Id { get; set; }
+
+    public virtual List<PodcastEpisode> Episodes { get; set; } = null!;
 }
