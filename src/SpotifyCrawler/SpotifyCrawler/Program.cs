@@ -62,9 +62,17 @@ if (podcasts.Count > 0)
     {
         Podcast podcast = podcasts[i];
         using IDbContextTransaction episodeTransaction = dbContext.Database.BeginTransaction();
-        spotifyClient.AddEpisodes(dbContext, podcast, CountryCode.UnitedStates);
-        episodeTransaction.Commit();
-        Console.WriteLine($"Fetched episodes for podcast {i + 1} of {podcasts.Count}!");
+        bool success = spotifyClient.AddEpisodes(dbContext, podcast, CountryCode.UnitedStates);
+        if (success)
+        {
+            Console.WriteLine($"Fetched episodes for podcast {i + 1} of {podcasts.Count}!");
+            episodeTransaction.Commit();
+        }
+        else
+        {
+            Console.WriteLine($"Failed to fetch episodes for podcast {i + 1} of {podcasts.Count}!");
+            episodeTransaction.Rollback();
+        }
     }
 }
 else

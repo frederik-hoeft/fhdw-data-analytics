@@ -63,7 +63,7 @@ public sealed class SpotifyClient : IDisposable
 
     private int delay = 0;
 
-    public void AddEpisodes(SqliteContext dbContext, Podcast podcast, CountryCode market)
+    public bool AddEpisodes(SqliteContext dbContext, Podcast podcast, CountryCode market)
     {
         const int RETRY_COUNT = 10;
         for (int showRetry = 0; showRetry < RETRY_COUNT; showRetry++)
@@ -129,7 +129,7 @@ public sealed class SpotifyClient : IDisposable
                 if (currentPage is null)
                 {
                     Console.WriteLine($"[WARN] exceeded retry counter waiting for {uri}... skipping this podcast :/");
-                    return;
+                    return false;
                 }
                 episodes.AddRange(currentPage.Episodes);
             }
@@ -151,8 +151,9 @@ public sealed class SpotifyClient : IDisposable
             }
             int changed = dbContext.SaveChanges();
             Console.WriteLine($"{changed} entries written to DB");
-            return;
+            return true;
         }
+        return false;
     }
 
     public void Dispose() => _httpClient.Dispose();
