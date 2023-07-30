@@ -37,6 +37,7 @@ public sealed class SpotifyClient : IDisposable
 
     public bool Authenticate()
     {
+        _httpClient.DefaultRequestHeaders.Remove("Authorization");
         using HttpRequestMessage request = new(HttpMethod.Post, "https://accounts.spotify.com/api/token");
         Dictionary<string, string> formContent = new()
         {
@@ -47,6 +48,7 @@ public sealed class SpotifyClient : IDisposable
         using FormUrlEncodedContent content = new(formContent);
         request.Content = content;
         using HttpResponseMessage response = _httpClient.Send(request);
+        Console.WriteLine($"{response.StatusCode}: {request.Method} {request.RequestUri}");
         if (!response.IsSuccessStatusCode)
         {
             return false;
