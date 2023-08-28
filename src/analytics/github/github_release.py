@@ -3,7 +3,6 @@ import requests
 import tqdm
 
 class GitHubRelease:
-
     __repository_id: int
 
     def __init__(self, repository_id: int) -> None:

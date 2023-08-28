@@ -61,7 +61,7 @@ class PodcastAnalytics:
         # sort by name and then run. use tdqm to show progress
         all_capabilities.sort(key=lambda capability: capability.__name__)
         description_padding: int = len("Running ...") + max([len(capability.__name__) for capability in all_capabilities])
-        with tqdm.tqdm(total=len(all_capabilities), unit='Capability') as pbar:
+        with tqdm.tqdm(total=len(all_capabilities), unit='Cap') as pbar:
             for capability in all_capabilities:
                 pbar.set_description(f'Running {capability.__name__}...'.ljust(description_padding))
                 result = capability()
