@@ -1,30 +1,26 @@
 from typing import Callable, List, Optional
+from matplotlib.figure import Figure
 from matplotlib.legend import Legend
 from matplotlib.ticker import MultipleLocator
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import seaborn as sns
-from sqlalchemy import Engine, create_engine
+from analyzers.podcast_analyzer import PodcastAnalyzer
 
 from analyzers.analyzer_result import AnalyzerResult
 
 # analyzes the average durations of podcasts in the rankings
-class PodcastDurationAnalyzer:
-    __engine: Engine
-    __theme: str
-    __palette: str
-
+class PodcastDurationAnalyzer(PodcastAnalyzer):
     def __init__(self, connection_string: str, theme: str, palette: str) -> None:
-        self.__engine = create_engine(connection_string)
-        self.__theme = theme
-        self.__palette = palette
+        super().__init__(connection_string, theme, palette)
     
     def __format_time(self, y, pos):
         formatted_time = pd.to_datetime(y, unit='ms').strftime('%H:%M:%S')
         return formatted_time
     
-    def capabilities(self) -> List[Callable[[None], AnalyzerResult]]:
+    def capabilities(self) -> List[Callable[[], AnalyzerResult]]:
         return [
             self.duration_by_rank_cluster,
             self.duration_by_region,
@@ -72,12 +68,12 @@ class PodcastDurationAnalyzer:
         AS AllTheRanks ON Podcasts.Id = AllTheRanks.PodcastId
         GROUP BY Podcasts.Id
         ORDER BY AvgRank ASC;
-        ''', self.__engine)
+        ''', self._engine)
 
-        def render(result: AnalyzerResult) -> Optional[plt.Figure]:
+        def render(result: AnalyzerResult) -> Figure:
             data = result.get_data_frame()
             # Set the style of seaborn
-            sns.set_theme(style=self.__theme)
+            sns.set_theme(style=self._theme)
 
             fig, ax = plt.subplots()
             # Create a scatter plot
@@ -86,7 +82,7 @@ class PodcastDurationAnalyzer:
                 y="AvgDurationMs",  # Y-axis: Average Duration of Episodes
                 data=data,
                 hue="CountryCount",  # Use different colors for each country count
-                palette=self.__palette + '_r',  # Color palette
+                palette=self._palette + '_r',  # Color palette
                 legend="auto",  # Show legend
                 ax=ax
             )
@@ -98,8 +94,9 @@ class PodcastDurationAnalyzer:
             ax.yaxis.set_major_formatter(self.__format_time)
 
             # Add legend (start at 1, end at 26, step by 5)
-            legend: Legend = ax.get_legend()
-            legend.set_title('Number of Countries')
+            legend: Legend | None = ax.get_legend()
+            if legend is not None:
+                legend.set_title('Number of Countries')
 
             fig.tight_layout()
             return fig
@@ -120,16 +117,16 @@ class PodcastDurationAnalyzer:
             INNER JOIN Rankings ON RankedPodcasts.RankingId = Rankings.Id
             WHERE Rankings.Genre = 'All'
             GROUP BY RankCluster
-        ''', self.__engine)
+        ''', self._engine)
 
-        def render(result: AnalyzerResult) -> Optional[plt.Figure]:
+        def render(result: AnalyzerResult) -> Figure:
             data = result.get_data_frame()
             # Set the style of seaborn
-            sns.set_theme(style=self.__theme)
+            sns.set_theme(style=self._theme)
 
             fig, ax = plt.subplots()
             # Create a bar plot
-            sns.barplot(data=data, x='RankCluster', y='AvgDurationMs', palette=self.__palette, ax=ax)
+            sns.barplot(data=data, x='RankCluster', y='AvgDurationMs', palette=self._palette, ax=ax)
             ax.set_xlabel(f'Rank Cluster (Grouped by {cluster_size} Ranks)')
             ax.set_ylabel('Average Podcast Duration')
             ax.set_title('Average Podcast Duration Clustered by Rank Over All Regions')
@@ -152,16 +149,16 @@ class PodcastDurationAnalyzer:
             WHERE Rankings.Genre = 'All'
             GROUP BY Country
             ORDER BY AvgDurationMs DESC
-        ''', self.__engine)
+        ''', self._engine)
 
-        def render(result: AnalyzerResult) -> Optional[plt.Figure]:
+        def render(result: AnalyzerResult) -> Figure:
             data = result.get_data_frame()
             # Set the style of seaborn
-            sns.set_theme(style=self.__theme)
+            sns.set_theme(style=self._theme)
 
             fig, ax = plt.subplots()
             # Create a bar plot
-            sns.barplot(data=data, x='Country', y='AvgDurationMs', palette=self.__palette, ax=ax)
+            sns.barplot(data=data, x='Country', y='AvgDurationMs', palette=self._palette, ax=ax)
             ax.set_xlabel('Country')
             ax.set_ylabel('Average Podcast Duration')
             ax.set_title('Average Podcast Duration Clustered by Region')
@@ -183,16 +180,16 @@ class PodcastDurationAnalyzer:
             WHERE Podcasts.Genre <> 'Unknown'
             GROUP BY Podcasts.Genre
             ORDER BY AvgDurationMs DESC
-        ''', self.__engine)
+        ''', self._engine)
         
-        def render(result: AnalyzerResult) -> Optional[plt.Figure]:
+        def render(result: AnalyzerResult) -> Figure:
             data = result.get_data_frame()
             # Set the style of seaborn
-            sns.set_theme(style=self.__theme)
+            sns.set_theme(style=self._theme)
 
             fig, ax = plt.subplots()
             # Create a bar plot
-            sns.barplot(data=data, x='Genre', y='AvgDurationMs', palette=self.__palette, ax=ax)
+            sns.barplot(data=data, x='Genre', y='AvgDurationMs', palette=self._palette, ax=ax)
             ax.set_xlabel('Genre')
             ax.set_ylabel('Average Podcast Duration')
             ax.set_title('Average Podcast Duration Clustered by Genre')
@@ -224,16 +221,16 @@ class PodcastDurationAnalyzer:
                 )
             GROUP BY Podcasts.Genre, Rankings.Country
             ORDER BY AvgDurationMs DESC
-        ''', self.__engine)
+        ''', self._engine)
 
-        def render(result: AnalyzerResult) -> Optional[plt.Figure]:
+        def render(result: AnalyzerResult) -> Figure:
             data = result.get_data_frame()
 
             # Pivot the data to create a pivot table with Genre and Country as indices
             pivot_data = data.pivot_table(index='Genre', columns='Country', values='AvgDurationMs')
 
             # Set the style of seaborn
-            sns.set_theme(style=self.__theme)
+            sns.set_theme(style=self._theme)
 
             # Calculate the absolute minimum and maximum values of AvgDurationMs
             abs_min = pivot_data[pivot_data >= 0].min().min()
@@ -243,8 +240,8 @@ class PodcastDurationAnalyzer:
             cluster_grid = sns.clustermap(data=pivot_data, vmin=abs_min, vmax=abs_max)
             
             # Access the reordered indices
-            reordered_rows = cluster_grid.dendrogram_row.reordered_ind
-            reordered_cols = cluster_grid.dendrogram_col.reordered_ind
+            reordered_rows = cluster_grid.dendrogram_row.reordered_ind if cluster_grid.dendrogram_row is not None else pivot_data.index
+            reordered_cols = cluster_grid.dendrogram_col.reordered_ind if cluster_grid.dendrogram_col is not None else pivot_data.columns
             
             # Reorder the DataFrame based on the reordered indices
             reordered_data = pivot_data.iloc[reordered_rows, reordered_cols]
@@ -257,7 +254,7 @@ class PodcastDurationAnalyzer:
             }
 
             # Create a new clustermap with the reordered data
-            reordered_cluster_grid = sns.clustermap(data=reordered_data, cmap=self.__palette + '_r', annot=False, vmin=abs_min, vmax=abs_max, cbar_kws=cbar_kws)
+            reordered_cluster_grid = sns.clustermap(data=reordered_data, cmap=self._palette + '_r', annot=False, vmin=abs_min, vmax=abs_max, cbar_kws=cbar_kws)
             reordered_cluster_grid.ax_heatmap.set_title('Correlation between Podcast Duration, Genre, and Region')
             reordered_cluster_grid.ax_heatmap.set_xlabel('Country')
             reordered_cluster_grid.ax_heatmap.set_ylabel('Genre')
@@ -272,36 +269,35 @@ class PodcastDurationAnalyzer:
     
     # returns the average duration and average number of episodes of the podcasts in the rankings grouped by Podcasts.genre (if genre is not "Unknown")
     def duration_vs_episode_count_by_genre(self) -> AnalyzerResult:
-        # TODO: must calculate weighted average duration by number of episodes!
         data = pd.read_sql_query('''
             SELECT 
-                Genre, 
-                AVG(EpisodeCountPerPodcast) AS AvgEpisodes,
-                AVG(AvgDurationMsPerPodcast) as AvgDurationMs
-            FROM (
-                SELECT PodcastId, Genre, COUNT(*) AS EpisodeCountPerPodcast, AVG(Episodes.DurationMs) as AvgDurationMsPerPodcast
-                FROM Episodes
-                INNER JOIN Podcasts ON Episodes.PodcastId = Podcasts.Id
-                WHERE Podcasts.Genre <> 'Unknown'
-                GROUP BY PodcastId
-            )
-            GROUP BY Genre;
-        ''', self.__engine)
+            Genre, 
+            AVG(EpisodeCountPerPodcast) AS AvgEpisodes,
+            SUM(EpisodeCountPerPodcast * AvgDurationMsPerPodcast) / SUM(EpisodeCountPerPodcast) AS WeightedAvgDurationMs
+        FROM (
+            SELECT PodcastId, Genre, COUNT(*) AS EpisodeCountPerPodcast, AVG(Episodes.DurationMs) AS AvgDurationMsPerPodcast
+            FROM Episodes
+            INNER JOIN Podcasts ON Episodes.PodcastId = Podcasts.Id
+            WHERE Podcasts.Genre <> 'Unknown'
+            GROUP BY PodcastId
+        )
+        GROUP BY Genre;
+        ''', self._engine)
         
-        def render(result: AnalyzerResult) -> Optional[plt.Figure]:
+        def render(result: AnalyzerResult) -> Figure:
             data = result.get_data_frame()
 
             # Set the style of seaborn
-            sns.set_theme(style=self.__theme)
+            sns.set_theme(style=self._theme)
 
             fig, ax = plt.subplots()
             # Create a scatter plot
             sns.scatterplot(
-                x="AvgDurationMs",  # X-axis: Average Duration of Episodes
+                x="WeightedAvgDurationMs",  # X-axis: Average Duration of Episodes
                 y="AvgEpisodes",  # Y-axis: Average Number of Episodes
                 hue="Genre",  # Use different colors for each genre
                 data=data,
-                palette=self.__palette,  # Color palette
+                palette=self._palette,  # Color palette
                 legend="full",  # Show legend
                 alpha=0.7,  # Set transparency of points
                 s=100,  # Size of points
@@ -311,16 +307,16 @@ class PodcastDurationAnalyzer:
             # Add labels to every dot
             for i, row in data.iterrows():
                 label = row['Genre']
-                x = row['AvgDurationMs']
+                x = row['WeightedAvgDurationMs']
                 y = row['AvgEpisodes']
                 # check if there is another label with similar coordinates (within 18,750 ms * label size and 10 episodes)
                 # if so, move the label up or down a bit. Which direction depends on whether the label is above or below the other label
-                for j in range(i):
-                    if abs(data.iloc[j]['AvgDurationMs'] - x) < 18750 * max(len(label), len(data.iloc[j]['Genre'])) and abs(data.iloc[j]['AvgEpisodes'] - y) < 10:
-                        if y > data.iloc[j]['AvgEpisodes']:
-                            y += 10
+                for j, other_row in data.iterrows():
+                    if i != j and abs(other_row['WeightedAvgDurationMs'] - x) < 18750 * max(len(label), len(other_row['Genre'])) and abs(other_row['AvgEpisodes'] - y) < 10:
+                        if y > other_row['AvgEpisodes']:
+                            y += 6
                         else:
-                            y -= 10
+                            y -= 6
                         break
                 ax.text(x + 40000, y, label, fontsize=8, va='center')
 
@@ -329,7 +325,9 @@ class PodcastDurationAnalyzer:
             ax.set_title('Relationship between Average Duration and Number of Episodes by Genre')
             ax.xaxis.set_major_locator(MultipleLocator(600000))
             ax.xaxis.set_major_formatter(self.__format_time)
-            ax.get_legend().remove()
+            legend: Legend | None = ax.get_legend()
+            if legend is not None:
+                legend.remove()
             fig.tight_layout()
             return fig
         
@@ -352,13 +350,13 @@ class PodcastDurationAnalyzer:
                     GROUP BY Episodes.PodcastId
                 )
             GROUP BY Genre;
-        ''', self.__engine)
+        ''', self._engine)
         
-        def render(result: AnalyzerResult) -> Optional[plt.Figure]:
+        def render(result: AnalyzerResult) -> Figure:
             data = result.get_data_frame()
 
             # Set the style of seaborn
-            sns.set_theme(style=self.__theme)
+            sns.set_theme(style=self._theme)
 
             fig, ax = plt.subplots()
             # Create a scatter plot
@@ -367,7 +365,7 @@ class PodcastDurationAnalyzer:
                 y="AvgRank",  # Y-axis: Average Rank
                 hue="Genre",  # Use different colors for each genre
                 data=data,
-                palette=self.__palette,  # Color palette
+                palette=self._palette,  # Color palette
                 legend="full",  # Show legend
                 alpha=0.7,  # Set transparency of points
                 s=100,  # Size of points
@@ -381,12 +379,12 @@ class PodcastDurationAnalyzer:
                 y = row['AvgRank']
                 # check if there is another label with similar coordinates (within 18,750 ms * label size and 1.5 ranks)
                 # if so, move the label up or down a bit. Which direction depends on whether the label is above or below the other label
-                for j in range(i):
-                    if abs(data.iloc[j]['AvgDurationMs'] - x) < 18750 * max(len(label), len(data.iloc[j]['Genre'])) and abs(data.iloc[j]['AvgRank'] - y) < 1.5:
-                        if y > data.iloc[j]['AvgRank']:
-                            y += 1.5
+                for j, other_row in data.iterrows():
+                    if i != j and abs(other_row['AvgDurationMs'] - x) < 18750 * max(len(label), len(other_row['Genre'])) and abs(other_row['AvgRank'] - y) < 1.5:
+                        if y > other_row['AvgRank']:
+                            y += 0.75
                         else:
-                            y -= 1.5
+                            y -= 0.75
                         break
                 ax.text(x + 40000, y, label, fontsize=8, va='center')
             
@@ -395,7 +393,9 @@ class PodcastDurationAnalyzer:
             ax.set_title('Relationship between Average Duration and Rank by Genre')
             ax.xaxis.set_major_locator(MultipleLocator(600000))
             ax.xaxis.set_major_formatter(self.__format_time)
-            ax.get_legend().remove()
+            legend: Legend | None = ax.get_legend()
+            if legend is not None:
+                legend.remove()
             fig.tight_layout()
             return fig
         
