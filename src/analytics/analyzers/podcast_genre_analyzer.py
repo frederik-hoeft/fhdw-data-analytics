@@ -1,60 +1,3 @@
-'''
-rankings.db database schema:
-CREATE TABLE IF NOT EXISTS "DataSets" (
-    "Id" INTEGER NOT NULL CONSTRAINT "PK_DataSets" PRIMARY KEY AUTOINCREMENT,
-    "CollectedAt" TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS "Episodes" (
-    "Id" INTEGER NOT NULL CONSTRAINT "PK_Episodes" PRIMARY KEY AUTOINCREMENT,
-    "DurationMs" INTEGER NOT NULL,
-    "Explicit" INTEGER NOT NULL,
-    "Href" TEXT NOT NULL,
-    "SpotifyId" TEXT NOT NULL,
-    "IsExternallyHosted" INTEGER NOT NULL,
-    "IsPlayable" INTEGER NOT NULL,
-    "Language" TEXT NOT NULL,
-    "ReleaseDate" TEXT NOT NULL,
-    "ReleaseDatePrecision" TEXT NOT NULL,
-    "Type" TEXT NOT NULL,
-    "SpotifyUri" TEXT NOT NULL,
-    "Description" TEXT NOT NULL,
-    "Name" TEXT NOT NULL,
-    "PodcastId" INTEGER NOT NULL,
-    CONSTRAINT "FK_Episodes_Podcasts_PodcastId" FOREIGN KEY ("PodcastId") REFERENCES "Podcasts" ("Id") ON DELETE CASCADE
-);
-CREATE INDEX "IX_Episodes_PodcastId" ON "Episodes" ("PodcastId");
-CREATE TABLE IF NOT EXISTS "Podcasts" (
-    "Id" INTEGER NOT NULL CONSTRAINT "PK_Podcasts" PRIMARY KEY AUTOINCREMENT,
-    "ShowUri" TEXT NOT NULL,
-    "ChartRankMove" TEXT NOT NULL,
-    "ShowImageUrl" TEXT NOT NULL,
-    "ShowName" TEXT NOT NULL,
-    "ShowPublisher" TEXT NOT NULL,
-    "ShowDescription" TEXT NOT NULL,
-    "Genre" TEXT NOT NULL,
-    "IsExplicit" INTEGER NOT NULL,
-    "Market" TEXT NOT NULL
-);
-CREATE UNIQUE INDEX "IX_Podcasts_ShowUri" ON "Podcasts" ("ShowUri");
-CREATE TABLE IF NOT EXISTS "RankedPodcasts" (
-    "RankingId" INTEGER NOT NULL,
-    "PodcastId" INTEGER NOT NULL,
-    "Rank" INTEGER NOT NULL,
-    CONSTRAINT "PK_RankedPodcasts" PRIMARY KEY ("RankingId"  "PodcastId"),
-    CONSTRAINT "FK_RankedPodcasts_Podcasts_PodcastId" FOREIGN KEY ("PodcastId") REFERENCES "Podcasts" ("Id") ON DELETE CASCADE,
-    CONSTRAINT "FK_RankedPodcasts_Rankings_RankingId" FOREIGN KEY ("RankingId") REFERENCES "Rankings" ("Id") ON DELETE CASCADE
-);
-CREATE INDEX "IX_RankedPodcasts_PodcastId" ON "RankedPodcasts" ("PodcastId");
-CREATE TABLE IF NOT EXISTS "Rankings" (
-    "Id" INTEGER NOT NULL CONSTRAINT "PK_Rankings" PRIMARY KEY AUTOINCREMENT,
-    "Genre" TEXT NOT NULL,
-    "Country" TEXT NOT NULL,
-    "PodcastDataSetId" INTEGER NULL,
-    CONSTRAINT "FK_Rankings_DataSets_PodcastDataSetId" FOREIGN KEY ("PodcastDataSetId") REFERENCES "DataSets" ("Id")
-);
-CREATE INDEX "IX_Rankings_PodcastDataSetId" ON "Rankings" ("PodcastDataSetId");
-'''
-
 from typing import Callable, List
 from matplotlib import colors
 from matplotlib.figure import Figure
@@ -100,7 +43,7 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
 
             fig, ax = plt.subplots()
             # Create a bar plot
-            sns.barplot(data=data, x='Genre', y='AvgRank', palette=self._palette, ax=ax)
+            sns.barplot(data=data, x='Genre', y='AvgRank', palette=self._palette + '_r', ax=ax)
             ax.set_xlabel('Genre')
             ax.set_ylabel('Average Rank')
             ax.set_title('Average Rank of Podcasts by Genre')
@@ -114,7 +57,7 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
     # Podcasts with Genre = 'Unknown' are excluded from the analysis. Only regions with genre rankings are included
     def genre_vs_rank_by_region(self) -> AnalyzerResult:
         data = pd.read_sql_query(f'''
-        SELECT subquery.Genre, subquery.Country, COALESCE(AvgRank, 200) AS AvgRank
+        SELECT subquery.Genre, subquery.Country, COALESCE(AvgRank, 201) AS AvgRank
         FROM (
             SELECT DISTINCT Podcasts.Genre, Rankings.Country
             FROM Podcasts, Rankings
@@ -166,7 +109,15 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
             }
 
             # Create a new clustermap with the reordered data
-            reordered_cluster_grid = sns.clustermap(data=reordered_data, cmap=self._palette + '_r', annot=False, vmin=abs_min, vmax=abs_max, cbar_kws=cbar_kws)
+            reordered_cluster_grid = sns.clustermap(
+                data=reordered_data, 
+                cmap=self._palette + '_r', 
+                annot=True, 
+                vmin=abs_min, 
+                vmax=abs_max, 
+                cbar_kws=cbar_kws, 
+                fmt='.1f',
+                annot_kws={'alpha': 0.75})
             reordered_cluster_grid.ax_heatmap.set_xlabel('Country')
             reordered_cluster_grid.ax_heatmap.set_ylabel('Genre')
             reordered_cluster_grid.ax_heatmap.set_title('Average Rank of Podcasts by Genre and Region')
@@ -174,6 +125,20 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
             # Hide the row and column dendrograms
             reordered_cluster_grid.ax_row_dendrogram.set_visible(False)
             reordered_cluster_grid.ax_col_dendrogram.set_visible(False)
+
+            # a bit stupid but this is the only way to format the annotations
+            def custom_format(x):
+                if np.isnan(x):
+                    return ''
+                elif x == 0:
+                    return '0'
+                elif x.is_integer():
+                    return '{:.0f}'.format(x)  # Return a format specifier as a string
+                else:
+                    return '{:.1f}'.format(x)
+
+            for t in reordered_cluster_grid.ax_heatmap.texts: 
+                t.set_text(custom_format(float(t.get_text())))
 
             return reordered_cluster_grid.fig
         
@@ -238,7 +203,7 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
             }
 
             # Create a new clustermap with the reordered data
-            reordered_cluster_grid = sns.clustermap(data=reordered_data, cmap=self._palette, annot=True, vmin=abs_min, vmax=abs_max, cbar_kws=cbar_kws)
+            reordered_cluster_grid = sns.clustermap(data=reordered_data, cmap=self._palette + '_r', annot=True, vmin=abs_min, vmax=abs_max, cbar_kws=cbar_kws)
             reordered_cluster_grid.ax_heatmap.set_xlabel('Country')
             reordered_cluster_grid.ax_heatmap.set_ylabel('Genre')
             reordered_cluster_grid.ax_heatmap.set_title('Presence of Podcast Genres in Top 200 by Region')
