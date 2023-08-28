@@ -256,7 +256,7 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
     # The average rank is then weighted by the number of podcasts in each genre in each region.
     def genre_vs_populatity_by_region(self) -> AnalyzerResult:
         genre_vs_rank_data = pd.read_sql_query(f'''
-        SELECT subquery.Genre, subquery.Country, COALESCE(AvgRank, 200) AS AvgRank
+        SELECT subquery.Genre, subquery.Country, COALESCE(AvgRank, 201) AS AvgRank
         FROM (
             SELECT DISTINCT Podcasts.Genre, Rankings.Country
             FROM Podcasts, Rankings
@@ -279,7 +279,7 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
         ''', self._engine)
 
         genre_vs_presence_data = pd.read_sql_query(f'''
-        SELECT subquery.Genre, subquery.Country, COALESCE(NumPodcasts, 0) AS NumPodcasts
+        SELECT subquery.Genre, subquery.Country, COALESCE(NumPodcasts, 1) AS NumPodcasts
         FROM (
             SELECT DISTINCT Podcasts.Genre, Rankings.Country
             FROM Podcasts, Rankings
@@ -308,9 +308,6 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
 
         # merge the two dataframes on Genre and Country
         data = pd.merge(genre_vs_rank_data, genre_vs_presence_data, on=['Genre', 'Country'])
-
-        # clean up the data (0 NumPodcasts -> 1 NumPodcasts)
-        data['NumPodcasts'] = data['NumPodcasts'].apply(lambda x: 1 if x == 0 else x)
 
         # for every genre-country pair, calculate the weighted average rank
         # lower weighted average rank means higher popularity
@@ -345,7 +342,16 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
             }
 
             # Create a new clustermap with the reordered data
-            reordered_cluster_grid = sns.clustermap(data=reordered_data, cmap=self._palette + '_r', annot=False, vmin=abs_min, vmax=abs_max, cbar_kws=cbar_kws, norm=colors.LogNorm())
+            reordered_cluster_grid = sns.clustermap(
+                data=reordered_data, 
+                cmap=self._palette + '_r', 
+                annot=True, 
+                vmin=abs_min, 
+                vmax=abs_max, 
+                cbar_kws=cbar_kws, 
+                norm=colors.LogNorm(), 
+                fmt='.1f',
+                annot_kws={'alpha': 0.75})
             reordered_cluster_grid.ax_heatmap.set_xlabel('Country')
             reordered_cluster_grid.ax_heatmap.set_ylabel('Genre')
             reordered_cluster_grid.ax_heatmap.set_title('Popularity of Podcast Genres in Top 200 by Region')
@@ -353,6 +359,20 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
             # Hide the row and column dendrograms
             reordered_cluster_grid.ax_row_dendrogram.set_visible(False)
             reordered_cluster_grid.ax_col_dendrogram.set_visible(False)
+
+            # a bit stupid but this is the only way to format the annotations
+            def custom_format(x):
+                if np.isnan(x):
+                    return ''
+                elif x == 0:
+                    return '0'
+                elif x.is_integer():
+                    return '{:.0f}'.format(x)  # Return a format specifier as a string
+                else:
+                    return '{:.1f}'.format(x)
+
+            for t in reordered_cluster_grid.ax_heatmap.texts: 
+                t.set_text(custom_format(float(t.get_text())))
 
             return reordered_cluster_grid.fig
 
