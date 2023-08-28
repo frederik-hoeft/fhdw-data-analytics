@@ -272,6 +272,7 @@ class PodcastDurationAnalyzer:
     
     # returns the average duration and average number of episodes of the podcasts in the rankings grouped by Podcasts.genre (if genre is not "Unknown")
     def duration_vs_episode_count_by_genre(self) -> AnalyzerResult:
+        # TODO: must calculate weighted average duration by number of episodes!
         data = pd.read_sql_query('''
             SELECT 
                 Genre, 
