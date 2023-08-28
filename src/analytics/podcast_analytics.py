@@ -1,8 +1,8 @@
 from os import path
 import os
 from typing import Callable, List, Optional
+from github.github_release import GitHubRelease
 from analyzers.podcast_analyzer import PodcastAnalyzer
-from rankings_db_updater import RankingsDBUpdater
 from analyzers.analyzer_result import AnalyzerResult
 import tqdm
 # keep these imports to allow python to do its reflection magic:
@@ -15,6 +15,7 @@ class PodcastAnalytics:
     __connection_string: str
     __theme: str = 'darkgrid'
     __palette: str = 'viridis'
+    __github_release: GitHubRelease
 
     __analyzers: Optional[List[PodcastAnalyzer]] = None
 
@@ -22,6 +23,7 @@ class PodcastAnalytics:
         self.__data_dir = data_dir
         self.__output_dir = output_dir
         self.__connection_string = 'sqlite:///' + path.abspath(path.join(data_dir, db_file))
+        self.__github_release = GitHubRelease(repository_id=668823738)
     
     def __to_out_dir(self, file_name: str) -> str:
         return path.abspath(path.join(self.__output_dir, file_name))
@@ -40,7 +42,8 @@ class PodcastAnalytics:
         return self.__palette
 
     def initialize(self) -> 'PodcastAnalytics':
-        RankingsDBUpdater.update_rankings_db(self.__data_dir)
+        print('Initializing PodcastAnalytics...')
+        self.__github_release.pull_latest_artifact('rankings.db', self.__data_dir)
         if not path.exists(self.__output_dir):
             os.makedirs(self.__output_dir)
         if self.__analyzers is None:
