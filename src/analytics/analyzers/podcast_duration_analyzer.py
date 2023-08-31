@@ -16,10 +16,6 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
     def __init__(self, connection_string: str, theme: str, palette: str) -> None:
         super().__init__(connection_string, theme, palette)
     
-    def __format_time(self, y, pos):
-        formatted_time = pd.to_datetime(y, unit='ms').strftime('%H:%M:%S')
-        return formatted_time
-    
     def capabilities(self) -> List[Callable[[], AnalyzerResult]]:
         return [
             self.duration_by_rank_cluster,
@@ -91,7 +87,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             ax.set_ylabel('Average Duration of Episodes')
             ax.set_title('Relationship between Average Duration and Rank')
             ax.yaxis.set_major_locator(MultipleLocator(60 * 60 * 1000)) # 1 hour
-            ax.yaxis.set_major_formatter(self.__format_time)
+            ax.yaxis.set_major_formatter(self._format_time)
 
             # Add legend (start at 1, end at 26, step by 5)
             legend: Legend | None = ax.get_legend()
@@ -131,7 +127,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             ax.set_ylabel('Average Podcast Duration')
             ax.set_title('Average Podcast Duration Clustered by Rank Over All Regions')
             ax.yaxis.set_major_locator(MultipleLocator(600000))
-            ax.yaxis.set_major_formatter(self.__format_time)
+            ax.yaxis.set_major_formatter(self._format_time)
             fig.tight_layout()
             return fig
 
@@ -163,7 +159,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             ax.set_ylabel('Average Podcast Duration')
             ax.set_title('Average Podcast Duration Clustered by Region')
             ax.yaxis.set_major_locator(MultipleLocator(600000))
-            ax.yaxis.set_major_formatter(self.__format_time)
+            ax.yaxis.set_major_formatter(self._format_time)
             fig.tight_layout()
             return fig
         
@@ -194,7 +190,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             ax.set_ylabel('Average Podcast Duration')
             ax.set_title('Average Podcast Duration Clustered by Genre')
             ax.yaxis.set_major_locator(MultipleLocator(600000))
-            ax.yaxis.set_major_formatter(self.__format_time)
+            ax.yaxis.set_major_formatter(self._format_time)
             ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
             fig.tight_layout()
             return fig
@@ -236,34 +232,35 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             abs_min = pivot_data[pivot_data >= 0].min().min()
             abs_max = pivot_data.max().max()
 
-            # Create the clustermap
-            cluster_grid = sns.clustermap(data=pivot_data, vmin=abs_min, vmax=abs_max)
-            
-            # Access the reordered indices
-            reordered_rows = cluster_grid.dendrogram_row.reordered_ind if cluster_grid.dendrogram_row is not None else pivot_data.index
-            reordered_cols = cluster_grid.dendrogram_col.reordered_ind if cluster_grid.dendrogram_col is not None else pivot_data.columns
-            
-            # Reorder the DataFrame based on the reordered indices
-            reordered_data = pivot_data.iloc[reordered_rows, reordered_cols]
-
             # Legend for the colorbar
             cbar_kws = {
                 'label': 'Average Podcast Duration',
-                'format': self.__format_time,
+                'format': self._format_time,
                 'ticks': np.linspace(abs_min, abs_max, 5)
             }
 
-            # Create a new clustermap with the reordered data
-            reordered_cluster_grid = sns.clustermap(data=reordered_data, cmap=self._palette + '_r', annot=False, vmin=abs_min, vmax=abs_max, cbar_kws=cbar_kws)
-            reordered_cluster_grid.ax_heatmap.set_title('Correlation between Podcast Duration, Genre, and Region')
-            reordered_cluster_grid.ax_heatmap.set_xlabel('Country')
-            reordered_cluster_grid.ax_heatmap.set_ylabel('Genre')
+            # Create a clustermap with the data
+            cluster_grid = sns.clustermap(
+                data=pivot_data, 
+                cmap=self._palette + '_r', 
+                annot=True, 
+                vmin=abs_min, 
+                vmax=abs_max, 
+                cbar_kws=cbar_kws,
+                annot_kws={'alpha': 0.75})
+            
+            cluster_grid.ax_heatmap.set_title('Correlation between Podcast Duration, Genre, and Region')
+            cluster_grid.ax_heatmap.set_xlabel('Country')
+            cluster_grid.ax_heatmap.set_ylabel('Genre')
 
             # Hide the row and column dendrograms
-            reordered_cluster_grid.ax_row_dendrogram.set_visible(False)
-            reordered_cluster_grid.ax_col_dendrogram.set_visible(False)
+            cluster_grid.ax_row_dendrogram.set_visible(False)
+            cluster_grid.ax_col_dendrogram.set_visible(False)
 
-            return reordered_cluster_grid.fig
+            for t in cluster_grid.ax_heatmap.texts: 
+                t.set_text(self._format_time(float(t.get_text()), None))
+
+            return cluster_grid.fig
         
         return AnalyzerResult(data, render)
     
@@ -324,7 +321,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             ax.set_ylabel('Average Number of Episodes per Podcast')
             ax.set_title('Relationship between Average Duration and Number of Episodes by Genre')
             ax.xaxis.set_major_locator(MultipleLocator(600000))
-            ax.xaxis.set_major_formatter(self.__format_time)
+            ax.xaxis.set_major_formatter(self._format_time)
             legend: Legend | None = ax.get_legend()
             if legend is not None:
                 legend.remove()
@@ -339,16 +336,21 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             SELECT 
                 Genre, 
                 AVG(Rank) AS AvgRank,
-                AVG(AvgDurationMsPerPodcast) as AvgDurationMs
-                FROM (
-                    SELECT Episodes.PodcastId, Podcasts.Genre, AVG(Rank) AS Rank, AVG(Episodes.DurationMs) as AvgDurationMsPerPodcast
-                    FROM Episodes
-                    INNER JOIN RankedPodcasts ON Episodes.PodcastId = RankedPodcasts.PodcastId
-                    INNER JOIN Rankings ON RankedPodcasts.RankingId = Rankings.Id
-                    INNER JOIN Podcasts ON Episodes.PodcastId = Podcasts.Id
-                    WHERE Podcasts.Genre <> 'Unknown'
-                    GROUP BY Episodes.PodcastId
-                )
+                SUM(EpisodeCountPerPodcast * AvgDurationMsPerPodcast) / SUM(EpisodeCountPerPodcast) AS WeightedAvgDurationMs
+            FROM (
+                SELECT Episodes.PodcastId AS PID, Podcasts.Genre, COUNT(*) / RankingsCount AS EpisodeCountPerPodcast, AVG(Rank) AS Rank, AVG(Episodes.DurationMs) as AvgDurationMsPerPodcast
+                FROM Episodes
+                INNER JOIN RankedPodcasts ON Episodes.PodcastId = RankedPodcasts.PodcastId
+                INNER JOIN Rankings ON RankedPodcasts.RankingId = Rankings.Id
+                INNER JOIN Podcasts ON Episodes.PodcastId = Podcasts.Id
+                INNER JOIN (
+                    SELECT PodcastId, COUNT(*) AS RankingsCount
+                    FROM RankedPodcasts
+                    GROUP BY PodcastId
+                ) AS RankingsPerPodcast ON RankingsPerPodcast.PodcastId = Episodes.PodcastId
+                WHERE Podcasts.Genre <> 'Unknown'
+                GROUP BY Episodes.PodcastId
+            )
             GROUP BY Genre;
         ''', self._engine)
         
@@ -361,7 +363,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             fig, ax = plt.subplots()
             # Create a scatter plot
             sns.scatterplot(
-                x="AvgDurationMs",  # X-axis: Average Duration of Episodes
+                x="WeightedAvgDurationMs",  # X-axis: Average Duration of Episodes
                 y="AvgRank",  # Y-axis: Average Rank
                 hue="Genre",  # Use different colors for each genre
                 data=data,
@@ -375,12 +377,12 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             # Add labels to every dot
             for i, row in data.iterrows():
                 label = row['Genre']
-                x = row['AvgDurationMs']
+                x = row['WeightedAvgDurationMs']
                 y = row['AvgRank']
                 # check if there is another label with similar coordinates (within 18,750 ms * label size and 1.5 ranks)
                 # if so, move the label up or down a bit. Which direction depends on whether the label is above or below the other label
                 for j, other_row in data.iterrows():
-                    if i != j and abs(other_row['AvgDurationMs'] - x) < 18750 * max(len(label), len(other_row['Genre'])) and abs(other_row['AvgRank'] - y) < 1.5:
+                    if i != j and abs(other_row['WeightedAvgDurationMs'] - x) < 18750 * max(len(label), len(other_row['Genre'])) and abs(other_row['AvgRank'] - y) < 1.5:
                         if y > other_row['AvgRank']:
                             y += 0.75
                         else:
@@ -392,7 +394,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             ax.set_ylabel('Average Rank')
             ax.set_title('Relationship between Average Duration and Rank by Genre')
             ax.xaxis.set_major_locator(MultipleLocator(600000))
-            ax.xaxis.set_major_formatter(self.__format_time)
+            ax.xaxis.set_major_formatter(self._format_time)
             legend: Legend | None = ax.get_legend()
             if legend is not None:
                 legend.remove()

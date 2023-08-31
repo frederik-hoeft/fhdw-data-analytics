@@ -92,25 +92,15 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
             abs_min = pivot_data[pivot_data >= 0].min().min()
             abs_max = pivot_data.max().max()
 
-            # Create the clustermap
-            cluster_grid = sns.clustermap(data=pivot_data, vmin=abs_min, vmax=abs_max)
-            
-            # Access the reordered indices
-            reordered_rows = cluster_grid.dendrogram_row.reordered_ind if cluster_grid.dendrogram_row is not None else pivot_data.index
-            reordered_cols = cluster_grid.dendrogram_col.reordered_ind if cluster_grid.dendrogram_col is not None else pivot_data.columns
-            
-            # Reorder the DataFrame based on the reordered indices
-            reordered_data = pivot_data.iloc[reordered_rows, reordered_cols]
-
             # Legend for the colorbar
             cbar_kws = {
                 'label': 'Average Rank',
                 'ticks': np.linspace(abs_min, abs_max, 5)
             }
 
-            # Create a new clustermap with the reordered data
-            reordered_cluster_grid = sns.clustermap(
-                data=reordered_data, 
+            # Create a clustermap with the data
+            cluster_grid = sns.clustermap(
+                data=pivot_data, 
                 cmap=self._palette + '_r', 
                 annot=True, 
                 vmin=abs_min, 
@@ -118,29 +108,18 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
                 cbar_kws=cbar_kws, 
                 fmt='.1f',
                 annot_kws={'alpha': 0.75})
-            reordered_cluster_grid.ax_heatmap.set_xlabel('Country')
-            reordered_cluster_grid.ax_heatmap.set_ylabel('Genre')
-            reordered_cluster_grid.ax_heatmap.set_title('Average Rank of Podcasts by Genre and Region')
+            cluster_grid.ax_heatmap.set_xlabel('Country')
+            cluster_grid.ax_heatmap.set_ylabel('Genre')
+            cluster_grid.ax_heatmap.set_title('Average Rank of Podcasts by Genre and Region')
 
             # Hide the row and column dendrograms
-            reordered_cluster_grid.ax_row_dendrogram.set_visible(False)
-            reordered_cluster_grid.ax_col_dendrogram.set_visible(False)
+            cluster_grid.ax_row_dendrogram.set_visible(False)
+            cluster_grid.ax_col_dendrogram.set_visible(False)
 
-            # a bit stupid but this is the only way to format the annotations
-            def custom_format(x):
-                if np.isnan(x):
-                    return ''
-                elif x == 0:
-                    return '0'
-                elif x.is_integer():
-                    return '{:.0f}'.format(x)  # Return a format specifier as a string
-                else:
-                    return '{:.1f}'.format(x)
+            for t in cluster_grid.ax_heatmap.texts: 
+                t.set_text(self._format_float(float(t.get_text())))
 
-            for t in reordered_cluster_grid.ax_heatmap.texts: 
-                t.set_text(custom_format(float(t.get_text())))
-
-            return reordered_cluster_grid.fig
+            return cluster_grid.fig
         
         return AnalyzerResult(data, render)
     
@@ -186,33 +165,23 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
             abs_min = pivot_data[pivot_data >= 0].min().min()
             abs_max = pivot_data.max().max()
 
-            # Create the clustermap
-            cluster_grid = sns.clustermap(data=pivot_data, annot=True, vmin=abs_min, vmax=abs_max)
-            
-            # Access the reordered indices
-            reordered_rows = cluster_grid.dendrogram_row.reordered_ind if cluster_grid.dendrogram_row is not None else pivot_data.index
-            reordered_cols = cluster_grid.dendrogram_col.reordered_ind if cluster_grid.dendrogram_col is not None else pivot_data.columns
-            
-            # Reorder the DataFrame based on the reordered indices
-            reordered_data = pivot_data.iloc[reordered_rows, reordered_cols]
-
             # Legend for the colorbar
             cbar_kws = {
                 'label': 'Number of Podcasts',
                 'ticks': np.linspace(abs_min, abs_max, 5)
             }
 
-            # Create a new clustermap with the reordered data
-            reordered_cluster_grid = sns.clustermap(data=reordered_data, cmap=self._palette + '_r', annot=True, vmin=abs_min, vmax=abs_max, cbar_kws=cbar_kws)
-            reordered_cluster_grid.ax_heatmap.set_xlabel('Country')
-            reordered_cluster_grid.ax_heatmap.set_ylabel('Genre')
-            reordered_cluster_grid.ax_heatmap.set_title('Presence of Podcast Genres in Top 200 by Region')
+            # Create a clustermap with the data
+            cluster_grid = sns.clustermap(data=pivot_data, cmap=self._palette + '_r', annot=True, vmin=abs_min, vmax=abs_max, cbar_kws=cbar_kws)
+            cluster_grid.ax_heatmap.set_xlabel('Country')
+            cluster_grid.ax_heatmap.set_ylabel('Genre')
+            cluster_grid.ax_heatmap.set_title('Presence of Podcast Genres in Top 200 by Region')
 
             # Hide the row and column dendrograms
-            reordered_cluster_grid.ax_row_dendrogram.set_visible(False)
-            reordered_cluster_grid.ax_col_dendrogram.set_visible(False)
+            cluster_grid.ax_row_dendrogram.set_visible(False)
+            cluster_grid.ax_col_dendrogram.set_visible(False)
 
-            return reordered_cluster_grid.fig
+            return cluster_grid.fig
         
         return AnalyzerResult(data, render)
     
@@ -291,24 +260,14 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
             abs_min = pivot_data[pivot_data >= 0].min().min()
             abs_max = pivot_data.max().max()
             
-            # Create the clustermap
-            cluster_grid = sns.clustermap(data=pivot_data, vmin=abs_min, vmax=abs_max)
-
-            # Access the reordered indices
-            reordered_rows = cluster_grid.dendrogram_row.reordered_ind if cluster_grid.dendrogram_row is not None else pivot_data.index
-            reordered_cols = cluster_grid.dendrogram_col.reordered_ind if cluster_grid.dendrogram_col is not None else pivot_data.columns
-
-            # Reorder the DataFrame based on the reordered indices
-            reordered_data = pivot_data.iloc[reordered_rows, reordered_cols]
-            
             # Legend for the colorbar
             cbar_kws = {
                 'label': 'Popularity Index',
             }
 
-            # Create a new clustermap with the reordered data
-            reordered_cluster_grid = sns.clustermap(
-                data=reordered_data, 
+            # Create a clustermap with the data
+            cluster_grid = sns.clustermap(
+                data=pivot_data, 
                 cmap=self._palette + '_r', 
                 annot=True, 
                 vmin=abs_min, 
@@ -317,28 +276,17 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
                 norm=colors.LogNorm(), 
                 fmt='.1f',
                 annot_kws={'alpha': 0.75})
-            reordered_cluster_grid.ax_heatmap.set_xlabel('Country')
-            reordered_cluster_grid.ax_heatmap.set_ylabel('Genre')
-            reordered_cluster_grid.ax_heatmap.set_title('Popularity of Podcast Genres in Top 200 by Region')
+            cluster_grid.ax_heatmap.set_xlabel('Country')
+            cluster_grid.ax_heatmap.set_ylabel('Genre')
+            cluster_grid.ax_heatmap.set_title('Popularity of Podcast Genres in Top 200 by Region')
 
             # Hide the row and column dendrograms
-            reordered_cluster_grid.ax_row_dendrogram.set_visible(False)
-            reordered_cluster_grid.ax_col_dendrogram.set_visible(False)
+            cluster_grid.ax_row_dendrogram.set_visible(False)
+            cluster_grid.ax_col_dendrogram.set_visible(False)
 
-            # a bit stupid but this is the only way to format the annotations
-            def custom_format(x):
-                if np.isnan(x):
-                    return ''
-                elif x == 0:
-                    return '0'
-                elif x.is_integer():
-                    return '{:.0f}'.format(x)  # Return a format specifier as a string
-                else:
-                    return '{:.1f}'.format(x)
+            for t in cluster_grid.ax_heatmap.texts: 
+                t.set_text(self._format_float(float(t.get_text())))
 
-            for t in reordered_cluster_grid.ax_heatmap.texts: 
-                t.set_text(custom_format(float(t.get_text())))
-
-            return reordered_cluster_grid.fig
+            return cluster_grid.fig
 
         return AnalyzerResult(data, render)
