@@ -338,7 +338,10 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
                 AVG(Rank) AS AvgRank,
                 SUM(EpisodeCountPerPodcast * AvgDurationMsPerPodcast) / SUM(EpisodeCountPerPodcast) AS WeightedAvgDurationMs
             FROM (
-                SELECT Episodes.PodcastId AS PID, Podcasts.Genre, COUNT(*) / RankingsCount AS EpisodeCountPerPodcast, AVG(Rank) AS Rank, AVG(Episodes.DurationMs) as AvgDurationMsPerPodcast
+                SELECT 
+                    Podcasts.Genre, COUNT(*) / RankingsCount AS EpisodeCountPerPodcast, 
+                    AVG(Rank) AS Rank, 
+                    AVG(Episodes.DurationMs) as AvgDurationMsPerPodcast
                 FROM Episodes
                 INNER JOIN RankedPodcasts ON Episodes.PodcastId = RankedPodcasts.PodcastId
                 INNER JOIN Rankings ON RankedPodcasts.RankingId = Rankings.Id
@@ -379,10 +382,10 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
                 label = row['Genre']
                 x = row['WeightedAvgDurationMs']
                 y = row['AvgRank']
-                # check if there is another label with similar coordinates (within 18,750 ms * label size and 1.5 ranks)
+                # check if there is another label with similar coordinates (within 30s * label size and 1.5 ranks)
                 # if so, move the label up or down a bit. Which direction depends on whether the label is above or below the other label
                 for j, other_row in data.iterrows():
-                    if i != j and abs(other_row['WeightedAvgDurationMs'] - x) < 18750 * max(len(label), len(other_row['Genre'])) and abs(other_row['AvgRank'] - y) < 1.5:
+                    if i != j and abs(other_row['WeightedAvgDurationMs'] - x) < 30000 * max(len(label), len(other_row['Genre'])) and abs(other_row['AvgRank'] - y) < 1.5:
                         if y > other_row['AvgRank']:
                             y += 0.75
                         else:
