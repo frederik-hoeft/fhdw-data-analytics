@@ -9,6 +9,8 @@ import tqdm
 import analyzers.podcast_duration_analyzer
 import analyzers.podcast_genre_analyzer
 import analyzers.podcast_upload_analyzer
+import analyzers.podcast_episode_count_analyzer
+import analyzers.podcast_episode_time_analyzer
 
 class PodcastAnalytics:
     __data_dir: str
