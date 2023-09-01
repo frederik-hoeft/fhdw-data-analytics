@@ -25,3 +25,6 @@ var/
 .installed.cfg
 *.egg
 MANIFEST
+
+# custom stuff
+.copilot-context.py

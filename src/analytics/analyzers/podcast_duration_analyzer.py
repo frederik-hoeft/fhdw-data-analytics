@@ -4,12 +4,13 @@ from matplotlib.legend import Legend
 from matplotlib.ticker import MultipleLocator
 import numpy as np
 import pandas as pd
+from pandas import DataFrame
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
 from analyzers.podcast_analyzer import PodcastAnalyzer
 
-from analyzers.analyzer_result import AnalyzerResult
+from analyzers.internals.analyzer_result import AnalyzerResult
 
 # analyzes the average durations of podcasts in the rankings
 class PodcastDurationAnalyzer(PodcastAnalyzer):
@@ -31,7 +32,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
     # we are only interested in the rankings that contain "All" genres (i.e. the overall rankings)
     # If a podcast is not in a country-specifc top 200 ranking, it is assigned a rank of 201
     def duration_by_rank(self) -> AnalyzerResult:
-        data = pd.read_sql_query(f'''
+        data: DataFrame = pd.read_sql_query(f'''
         SELECT 
             Podcasts.Id,
             Podcasts.ShowName AS PodcastName,
@@ -67,7 +68,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
         ''', self._engine)
 
         def render(result: AnalyzerResult) -> Figure:
-            data = result.get_data_frame()
+            data: DataFrame = result.get_data_frame()
             # Set the style of seaborn
             sns.set_theme(style=self._theme)
 
@@ -103,7 +104,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
     # e.g. if there are 200 podcasts in the rankings, the first 10 podcasts are in cluster 0, the next 10 are in cluster 1, etc.
     # we are only interested in the rankings that contain "All" genres
     def duration_by_rank_cluster(self, cluster_size: int = 10) -> AnalyzerResult:
-        data = pd.read_sql_query(f'''
+        data: DataFrame = pd.read_sql_query(f'''
             SELECT 
                 AVG(DurationMs) as AvgDurationMs,
                 -- CEILING(Rank / {cluster_size}), including upperbound as RankCluster
@@ -116,7 +117,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
         ''', self._engine)
 
         def render(result: AnalyzerResult) -> Figure:
-            data = result.get_data_frame()
+            data: DataFrame = result.get_data_frame()
             # Set the style of seaborn
             sns.set_theme(style=self._theme)
 
@@ -148,7 +149,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
         ''', self._engine)
 
         def render(result: AnalyzerResult) -> Figure:
-            data = result.get_data_frame()
+            data: DataFrame = result.get_data_frame()
             # Set the style of seaborn
             sns.set_theme(style=self._theme)
 
@@ -167,7 +168,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
     
     # returns the average duration of podcasts in the rankings grouped by Podcasts.genre (if genre is not "Unknown")
     def duration_by_genre(self) -> AnalyzerResult:
-        data = pd.read_sql_query('''
+        data: DataFrame = pd.read_sql_query('''
             SELECT
                 AVG(Episodes.DurationMs) AS AvgDurationMs,
                 Podcasts.Genre AS Genre
@@ -179,7 +180,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
         ''', self._engine)
         
         def render(result: AnalyzerResult) -> Figure:
-            data = result.get_data_frame()
+            data: DataFrame = result.get_data_frame()
             # Set the style of seaborn
             sns.set_theme(style=self._theme)
 
@@ -200,7 +201,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
     # returns the average duration of podcasts in the rankings grouped by Podcasts.genre (if genre is not "Unknown")
     # and then clustered by region. Only include countries that have rankings for all genres
     def duration_by_genre_and_region(self) -> AnalyzerResult:
-        data = pd.read_sql_query('''
+        data: DataFrame = pd.read_sql_query('''
             SELECT
                 AVG(Episodes.DurationMs) AS AvgDurationMs,
                 Podcasts.Genre AS Genre,
@@ -220,10 +221,10 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
         ''', self._engine)
 
         def render(result: AnalyzerResult) -> Figure:
-            data = result.get_data_frame()
+            data: DataFrame = result.get_data_frame()
 
             # Pivot the data to create a pivot table with Genre and Country as indices
-            pivot_data = data.pivot_table(index='Genre', columns='Country', values='AvgDurationMs')
+            pivot_data: DataFrame = data.pivot_table(index='Genre', columns='Country', values='AvgDurationMs')
 
             # Set the style of seaborn
             sns.set_theme(style=self._theme)
@@ -266,7 +267,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
     
     # returns the average duration and average number of episodes of the podcasts in the rankings grouped by Podcasts.genre (if genre is not "Unknown")
     def duration_vs_episode_count_by_genre(self) -> AnalyzerResult:
-        data = pd.read_sql_query('''
+        data: DataFrame = pd.read_sql_query('''
             SELECT 
             Genre, 
             AVG(EpisodeCountPerPodcast) AS AvgEpisodes,
@@ -282,7 +283,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
         ''', self._engine)
         
         def render(result: AnalyzerResult) -> Figure:
-            data = result.get_data_frame()
+            data: DataFrame = result.get_data_frame()
 
             # Set the style of seaborn
             sns.set_theme(style=self._theme)
@@ -332,7 +333,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
 
     # returns the average duration and average rank of the podcasts in all the rankings grouped by Podcasts.genre (if genre is not "Unknown")
     def duration_vs_rank_by_genre(self) -> AnalyzerResult:
-        data = pd.read_sql_query('''
+        data: DataFrame = pd.read_sql_query('''
             SELECT 
                 Genre, 
                 AVG(Rank) AS AvgRank,
@@ -358,7 +359,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
         ''', self._engine)
         
         def render(result: AnalyzerResult) -> Figure:
-            data = result.get_data_frame()
+            data: DataFrame = result.get_data_frame()
 
             # Set the style of seaborn
             sns.set_theme(style=self._theme)

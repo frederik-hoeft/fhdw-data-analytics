@@ -3,11 +3,12 @@ import os
 from typing import Callable, List, Optional
 from github.github_release import GitHubRelease
 from analyzers.podcast_analyzer import PodcastAnalyzer
-from analyzers.analyzer_result import AnalyzerResult
+from analyzers.internals.analyzer_result import AnalyzerResult
 import tqdm
 # keep these imports to allow python to do its reflection magic:
 import analyzers.podcast_duration_analyzer
 import analyzers.podcast_genre_analyzer
+import analyzers.podcast_upload_analyzer
 
 class PodcastAnalytics:
     __data_dir: str

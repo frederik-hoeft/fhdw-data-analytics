@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from sqlalchemy import Engine, create_engine
 
-from analyzers.analyzer_result import AnalyzerResult
+from analyzers.internals.analyzer_result import AnalyzerResult
 
 class PodcastAnalyzer:
     _engine: Engine

@@ -3,10 +3,11 @@ from matplotlib import colors
 from matplotlib.figure import Figure
 import numpy as np
 import pandas as pd
+from pandas import DataFrame
 import matplotlib.pyplot as plt
 import seaborn as sns
 from analyzers.podcast_analyzer import PodcastAnalyzer
-from analyzers.analyzer_result import AnalyzerResult
+from analyzers.internals.analyzer_result import AnalyzerResult
 
 class PodcastGenreAnalyzer(PodcastAnalyzer):
     def __init__(self, connection_string: str, theme: str, palette: str) -> None:
@@ -23,7 +24,7 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
     # returns the average rank of each genre over all 'total' rankings (Genre = 'All') over all regions
     # Podcasts with Genre = 'Unknown' are excluded from the analysis
     def genre_vs_rank(self) -> AnalyzerResult:
-        data = pd.read_sql_query(f'''
+        data: DataFrame = pd.read_sql_query(f'''
             SELECT Genre, Avg(Rank) AS AvgRank
             FROM (
                 SELECT Podcasts.Genre, RankedPodcasts.Rank
@@ -37,7 +38,7 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
             ''', self._engine)
         
         def render(result: AnalyzerResult) -> Figure:
-            data = result.get_data_frame()
+            data: DataFrame = result.get_data_frame()
             # Set the style of seaborn
             sns.set_theme(style=self._theme)
 
@@ -80,10 +81,10 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
         ''', self._engine)
         
         def render(result: AnalyzerResult) -> Figure:
-            data = result.get_data_frame()
+            data: DataFrame = result.get_data_frame()
 
             # Pivot the data to create a pivot table with Genre and Country as indices
-            pivot_data = data.pivot_table(index='Genre', columns='Country', values='AvgRank')
+            pivot_data: DataFrame = data.pivot_table(index='Genre', columns='Country', values='AvgRank')
 
             # Set the style of seaborn
             sns.set_theme(style=self._theme)
@@ -126,7 +127,7 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
     # returns the percentage of podcast genres in the top 200 podcasts by region
     # Podcasts with Genre = 'Unknown' are included in the analysis
     def genre_vs_presence_by_region(self) -> AnalyzerResult:
-        data = pd.read_sql_query(f'''
+        data: DataFrame = pd.read_sql_query(f'''
         SELECT subquery.Genre, subquery.Country, COALESCE(NumPodcasts, 0) AS NumPodcasts
         FROM (
             SELECT DISTINCT Podcasts.Genre, Rankings.Country
@@ -153,10 +154,10 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
         
         # another clustermap:
         def render(result: AnalyzerResult) -> Figure:
-            data = result.get_data_frame()
+            data: DataFrame = result.get_data_frame()
 
             # Pivot the data to create a pivot table with Genre and Country as indices
-            pivot_data = data.pivot_table(index='Genre', columns='Country', values='NumPodcasts')
+            pivot_data: DataFrame = data.pivot_table(index='Genre', columns='Country', values='NumPodcasts')
 
             # Set the style of seaborn
             sns.set_theme(style=self._theme)
@@ -189,7 +190,7 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
     # Podcasts with Genre = 'Unknown' are excluded from the analysis. Only regions with genre rankings are included.
     # The average rank is then weighted by the number of podcasts in each genre in each region.
     def genre_vs_populatity_by_region(self) -> AnalyzerResult:
-        genre_vs_rank_data = pd.read_sql_query(f'''
+        genre_vs_rank_data: DataFrame = pd.read_sql_query(f'''
         SELECT subquery.Genre, subquery.Country, COALESCE(AvgRank, 201) AS AvgRank
         FROM (
             SELECT DISTINCT Podcasts.Genre, Rankings.Country
@@ -212,7 +213,7 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
         ORDER BY AvgRank ASC
         ''', self._engine)
 
-        genre_vs_presence_data = pd.read_sql_query(f'''
+        genre_vs_presence_data: DataFrame = pd.read_sql_query(f'''
         SELECT subquery.Genre, subquery.Country, COALESCE(NumPodcasts, 1) AS NumPodcasts
         FROM (
             SELECT DISTINCT Podcasts.Genre, Rankings.Country
@@ -238,20 +239,20 @@ class PodcastGenreAnalyzer(PodcastAnalyzer):
         ''', self._engine)
 
         # remove 'Unknown' genre from the data
-        genre_vs_rank_data = genre_vs_rank_data[genre_vs_rank_data['Genre'] != 'Unknown']
+        genre_vs_rank_data: DataFrame = genre_vs_rank_data[genre_vs_rank_data['Genre'] != 'Unknown']
 
         # merge the two dataframes on Genre and Country
-        data = pd.merge(genre_vs_rank_data, genre_vs_presence_data, on=['Genre', 'Country'])
+        data: DataFrame = pd.merge(genre_vs_rank_data, genre_vs_presence_data, on=['Genre', 'Country'])
 
         # for every genre-country pair, calculate the weighted average rank
         # lower weighted average rank means higher popularity
         data['WeightedAvgRank'] = data['AvgRank'] / data['NumPodcasts']
 
         def render(result: AnalyzerResult) -> Figure:
-            data = result.get_data_frame()
+            data: DataFrame = result.get_data_frame()
 
             # Pivot the data to create a pivot table with Genre and Country as indices
-            pivot_data = data.pivot_table(index='Genre', columns='Country', values='WeightedAvgRank')
+            pivot_data: DataFrame = data.pivot_table(index='Genre', columns='Country', values='WeightedAvgRank')
 
             # Set the style of seaborn
             sns.set_theme(style=self._theme)
