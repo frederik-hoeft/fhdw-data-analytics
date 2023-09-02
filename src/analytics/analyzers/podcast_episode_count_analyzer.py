@@ -3,6 +3,7 @@ from matplotlib.figure import Figure
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
+import matplotlib.pyplot as plt
 import seaborn as sns
 from analyzers.podcast_analyzer import PodcastAnalyzer
 from analyzers.internals.analyzer_result import AnalyzerResult
@@ -13,12 +14,13 @@ class PodcastEpisodeCountAnalyzer(PodcastAnalyzer):
     
     def capabilities(self) -> List[Callable[[], AnalyzerResult]]:
         return [
-            self.episode_count
+            self.episode_count_by_genre_and_region,
+            self.episode_count_global
         ]
     
     # returns the average podcast episode count of the top 200 genres by region
     # Podcasts with Genre = 'Unknown' are excluded in the analysis
-    def episode_count(self) -> AnalyzerResult:
+    def episode_count_by_genre_and_region(self) -> AnalyzerResult:
         data: DataFrame = pd.read_sql_query(f'''
         SELECT subquery.genre as Genre, subquery.country as Country, (NumEpisodes/NumPublishers) as AvgNumEpisodes
         from (
@@ -62,5 +64,38 @@ class PodcastEpisodeCountAnalyzer(PodcastAnalyzer):
             cluster_grid.ax_col_dendrogram.set_visible(False)
 
             return cluster_grid.fig
+        
+        return AnalyzerResult(data, render)
+    
+    # returns a probability distribution of the average podcast episode count
+    def episode_count_global(self) -> AnalyzerResult:
+        data = pd.read_sql_query('''
+        SELECT subquery.Genre as Genre, subquery.Country as Country, (NumEpisodes/NumPublishers) as AvgNumEpisodes
+        from (
+            select rankings.genre, rankings.country, COUNT(Distinct ShowPublisher) as NumPublishers, COUNT(Episodes.Id) as NumEpisodes from RankedPodcasts
+            inner join podcasts on Podcasts.Id = RankedPodcasts.PodcastId
+            inner join rankings on Rankings.Id = RankedPodcasts.RankingId
+            inner join Episodes on Episodes.PodcastId = Podcasts.Id
+            where rankings.Genre != 'All'
+            group by rankings.genre, rankings.Country) as subquery
+        order by AvgNumEpisodes DESC
+        ''', self._engine)
+
+        def render(result: AnalyzerResult) -> Figure:
+            data: DataFrame = result.get_data_frame()
+            # Set the style of seaborn
+            sns.set_theme(style=self._theme)
+
+            fig, ax = plt.subplots()
+            # Create a bar plot
+            # sns.barplot(data=data, x='AvgNumEpisodes', y='AvgNumEpisodes', palette=self._palette, ax=ax)
+            sns.displot(data=data, x="AvgNumEpisodes", kind="kde") # <- ist irgendwie leer?
+            ax.set_xlabel('Average Episode Count')
+            ax.set_ylabel('Probability')
+            ax.set_title('Average Podcast Episode Count')
+            # ax.yaxis.set_major_locator(MultipleLocator(600000))
+            # ax.yaxis.set_major_formatter(self._format_time)
+            fig.tight_layout()
+            return fig
         
         return AnalyzerResult(data, render)
