@@ -70,15 +70,33 @@ class PodcastEpisodeCountAnalyzer(PodcastAnalyzer):
     # returns a probability distribution of the average podcast episode count
     def episode_count_global(self) -> AnalyzerResult:
         data = pd.read_sql_query('''
-        SELECT subquery.Genre as Genre, subquery.Country as Country, (NumEpisodes/NumPublishers) as AvgNumEpisodes
-        from (
-            select rankings.genre, rankings.country, COUNT(Distinct ShowPublisher) as NumPublishers, COUNT(Episodes.Id) as NumEpisodes from RankedPodcasts
-            inner join podcasts on Podcasts.Id = RankedPodcasts.PodcastId
-            inner join rankings on Rankings.Id = RankedPodcasts.RankingId
-            inner join Episodes on Episodes.PodcastId = Podcasts.Id
-            where rankings.Genre != 'All'
-            group by rankings.genre, rankings.Country) as subquery
-        order by AvgNumEpisodes DESC
+        WITH AvgEpisodesDistribution AS (
+            SELECT
+                subquery.Genre AS Genre,
+                subquery.Country AS Country,
+                ROUND((NumEpisodes / NumPublishers) / 5) * 5 AS RoundedAvgNumEpisodes
+            FROM (
+                SELECT
+                    rankings.genre,
+                    rankings.country,
+                    COUNT(DISTINCT ShowPublisher) AS NumPublishers,
+                    COUNT(Episodes.Id) AS NumEpisodes
+                FROM RankedPodcasts
+                INNER JOIN Podcasts ON Podcasts.Id = RankedPodcasts.PodcastId
+                INNER JOIN Rankings ON Rankings.Id = RankedPodcasts.RankingId
+                INNER JOIN Episodes ON Episodes.PodcastId = Podcasts.Id
+                WHERE rankings.Genre != 'All'
+                GROUP BY rankings.genre, rankings.Country
+            ) AS subquery
+        )
+
+        SELECT
+            RoundedAvgNumEpisodes AS AvgNumEpisodes,
+            COUNT(*) AS Frequency,
+            1.0 * COUNT(*) / (SELECT COUNT(*) FROM AvgEpisodesDistribution) AS Probability
+        FROM AvgEpisodesDistribution
+        GROUP BY AvgNumEpisodes
+        ORDER BY AvgNumEpisodes;
         ''', self._engine)
 
         def render(result: AnalyzerResult) -> Figure:
@@ -88,8 +106,7 @@ class PodcastEpisodeCountAnalyzer(PodcastAnalyzer):
 
             fig, ax = plt.subplots()
             # Create a bar plot
-            # sns.barplot(data=data, x='AvgNumEpisodes', y='AvgNumEpisodes', palette=self._palette, ax=ax)
-            sns.displot(data=data, x="AvgNumEpisodes", kind="kde") # <- ist irgendwie leer?
+            sns.lineplot(data=data, x='AvgNumEpisodes', y='Probability', palette=self._palette + '_r', ax=ax)
             ax.set_xlabel('Average Episode Count')
             ax.set_ylabel('Probability')
             ax.set_title('Average Podcast Episode Count')

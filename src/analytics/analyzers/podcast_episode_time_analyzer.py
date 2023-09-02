@@ -70,15 +70,34 @@ class PodcastEpisodeTimeAnalyzer(PodcastAnalyzer):
     # returns a probability distribution of the average time passed since the first podcast episode
     def episode_time_global(self) -> AnalyzerResult:
         data = pd.read_sql_query('''
-        select CAST(avg(TimePassed)/365*12 AS INT) as AvgTimePassed, subquery.Genre, subquery.Country, subquery.Rank
-        from (
-            select CAST((JULIANDAY('now') - JULIANDAY(Episodes.ReleaseDate)) as INT) as TimePassed, Rankings.Genre, Rankings.Country, RankedPodcasts.Rank from Episodes
-            inner join Podcasts on Podcasts.Id = Episodes.PodcastId
-            inner join RankedPodcasts on RankedPodcasts.PodcastId = Podcasts.Id
-            inner join Rankings on Rankings.Id = RankedPodcasts.RankingId
-            where Rankings.Genre != 'All') as subquery
-        group by subquery.Genre, subquery.Country
-        order by AvgTimePassed DESC
+        WITH AvgTimePassedDistribution AS (
+            SELECT
+                subquery.Genre AS Genre,
+                subquery.Country AS Country,
+                CAST(AVG(subquery.TimePassed) / 365 * 12 as INT) AS AvgTimePassed
+            FROM (
+                SELECT
+                    CAST((JULIANDAY('now') - JULIANDAY(Episodes.ReleaseDate)) AS INT) AS TimePassed,
+                    Rankings.Genre,
+                    Rankings.Country
+                FROM Episodes
+                INNER JOIN Podcasts ON Podcasts.Id = Episodes.PodcastId
+                INNER JOIN RankedPodcasts ON RankedPodcasts.PodcastId = Podcasts.Id
+                INNER JOIN Rankings ON Rankings.Id = RankedPodcasts.RankingId
+                WHERE Rankings.Genre != 'All'
+            ) AS subquery
+            GROUP BY subquery.Genre, subquery.Country
+        )
+
+        SELECT
+            Genre,
+            Country,
+            AvgTimePassed,
+            COUNT(*) AS Frequency,
+            1.0 * COUNT(*) / (SELECT COUNT(*) FROM AvgTimePassedDistribution) AS Probability
+        FROM AvgTimePassedDistribution
+        GROUP BY AvgTimePassed
+        ORDER BY AvgTimePassed DESC;
         ''', self._engine)
 
         def render(result: AnalyzerResult) -> Figure:
@@ -88,8 +107,7 @@ class PodcastEpisodeTimeAnalyzer(PodcastAnalyzer):
 
             fig, ax = plt.subplots()
             # Create a bar plot
-            # sns.barplot(data=data, x='AvgNumEpisodes', y='AvgNumEpisodes', palette=self._palette, ax=ax)
-            sns.displot(data=data, x="AvgTimePassed", kind="kde") # <- ist irgendwie leer?
+            sns.lineplot(data=data, x='AvgTimePassed', y='Probability', palette=self._palette + '_r', ax=ax)
             ax.set_xlabel('Average Time Passed')
             ax.set_ylabel('Probability')
             ax.set_title('Average Time Passed since First Podcast Episode')
