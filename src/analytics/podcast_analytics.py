@@ -1,6 +1,10 @@
 from os import path
 import os
 from typing import Callable, List, Optional
+import pandas as pd
+
+from sqlalchemy import Engine, create_engine
+from analyzers.models.duration_genre_classifier_model import DurationGenreClassifierModel
 
 from analyzers.internals.analyzer_result import AnalyzerResultModel
 from github.github_release import GitHubRelease
@@ -48,6 +52,9 @@ class PodcastAnalytics:
     
     def palette(self) -> str:
         return self.__palette
+    
+    def connection_string(self) -> str:
+        return self.__connection_string
 
     def initialize(self) -> 'PodcastAnalytics':
         print('Initializing PodcastAnalytics...')
@@ -55,7 +62,7 @@ class PodcastAnalytics:
         if not path.exists(self.__output_dir):
             os.makedirs(self.__output_dir)
         if self.__analyzers is None:
-            analyzers: List[type] = PodcastAnalyzer.__subclasses__()
+            analyzers: List[type] = list(filter(lambda t: not t.__name__.startswith('__'), PodcastAnalyzer.__subclasses__()))
             self.__analyzers = [analyzer(self.__connection_string, self.__theme, self.__palette) for analyzer in analyzers]
         return self
     
@@ -65,6 +72,9 @@ class PodcastAnalytics:
         all_capabilities: List[Callable[[], AnalyzerResult]] = []
         for analyzer in self.__analyzers:
             all_capabilities.extend(analyzer.capabilities())
+        if len(all_capabilities) == 0:
+            print('No analyzers to run')
+            return
         print(f'Running {len(self.__analyzers)} analyzers with {len(all_capabilities)} capabilities...')
         # sort by name and then run. use tdqm to show progress
         all_capabilities.sort(key=lambda capability: capability.__name__)
@@ -92,3 +102,30 @@ if __name__ == '__main__':
     spotify.set_style('darkgrid', 'viridis')
     spotify.initialize()
     spotify.run_analyzers()
+
+    # attempt prediction
+    classifier: DurationGenreClassifierModel = DurationGenreClassifierModel.initialize_from_database(spotify.connection_string())
+    engine: Engine = create_engine(spotify.connection_string())
+    data = pd.read_sql_query('''
+        SELECT 
+            PodcastId,
+            ShowName,
+            Genre,
+            ShowDescription,
+            COUNT(*) AS EpisodeCount, 
+            AVG(Episodes.DurationMs) AS AvgDurationMs
+        FROM Episodes
+        INNER JOIN Podcasts ON Episodes.PodcastId = Podcasts.Id
+        WHERE Podcasts.Genre <> 'Unknown'
+        GROUP BY PodcastId
+    ''', engine)
+    total = len(data)
+    correct = 0
+
+    for i, row in data.iterrows():
+        genre, confidence = classifier.classify(row['AvgDurationMs'], row['EpisodeCount'])
+        if genre == row['Genre']:
+            correct += 1
+        print(f'{i}/{total} - {row["ShowName"]} - {row["Genre"]} - {genre} - {confidence}')
+
+    print(f'Correct: {correct}/{total} - {correct / total * 100}%')

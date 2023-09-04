@@ -8,6 +8,7 @@ from pandas import DataFrame
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
+from analyzers.models.duration_genre_classifier_model import DurationGenreClassifierModel
 from analyzers.podcast_analyzer import PodcastAnalyzer
 
 from analyzers.internals.analyzer_result import AnalyzerResult
@@ -25,7 +26,8 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             self.duration_by_genre_and_region,
             self.duration_vs_episode_count_by_genre,
             self.duration_vs_rank_by_genre,
-            self.duration_by_rank
+            self.duration_by_rank,
+            self.duration_vs_episode_count_by_genre_scatter
         ]
     
     # returns the average duration of podcasts in the rankings by average rank over all rankings
@@ -266,22 +268,18 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
         return AnalyzerResult(data, render)
     
     # returns the average duration and average number of episodes of the podcasts in the rankings grouped by Podcasts.genre (if genre is not "Unknown")
-    def duration_vs_episode_count_by_genre(self) -> AnalyzerResult:
+    def duration_vs_episode_count_by_genre_scatter(self) -> AnalyzerResult:
         data: DataFrame = pd.read_sql_query('''
             SELECT 
-            Genre, 
-            AVG(EpisodeCountPerPodcast) AS AvgEpisodes,
-            SUM(EpisodeCountPerPodcast * AvgDurationMsPerPodcast) / SUM(EpisodeCountPerPodcast) AS WeightedAvgDurationMs
-        FROM (
-            SELECT PodcastId, Genre, COUNT(*) AS EpisodeCountPerPodcast, AVG(Episodes.DurationMs) AS AvgDurationMsPerPodcast
+                Genre,
+                COUNT(*) AS EpisodeCount, 
+                AVG(Episodes.DurationMs) AS AvgDurationMs
             FROM Episodes
             INNER JOIN Podcasts ON Episodes.PodcastId = Podcasts.Id
             WHERE Podcasts.Genre <> 'Unknown'
             GROUP BY PodcastId
-        )
-        GROUP BY Genre;
         ''', self._engine)
-        
+
         def render(result: AnalyzerResult) -> Figure:
             data: DataFrame = result.get_data_frame()
 
@@ -291,45 +289,49 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             fig, ax = plt.subplots()
             # Create a scatter plot
             sns.scatterplot(
-                x="WeightedAvgDurationMs",  # X-axis: Average Duration of Episodes
-                y="AvgEpisodes",  # Y-axis: Average Number of Episodes
+                x="AvgDurationMs",  # X-axis: Average Duration of Episodes
+                y="EpisodeCount",  # Y-axis: Average Number of Episodes
                 hue="Genre",  # Use different colors for each genre
                 data=data,
                 palette=self._palette,  # Color palette
-                legend="full",  # Show legend
-                alpha=0.7,  # Set transparency of points
-                s=100,  # Size of points
+                s=50,  # Size of points
                 ax=ax
             )
-
-            # Add labels to every dot
-            for i, row in data.iterrows():
-                label = row['Genre']
-                x = row['WeightedAvgDurationMs']
-                y = row['AvgEpisodes']
-                # check if there is another label with similar coordinates (within 18,750 ms * label size and 10 episodes)
-                # if so, move the label up or down a bit. Which direction depends on whether the label is above or below the other label
-                for j, other_row in data.iterrows():
-                    if i != j and abs(other_row['WeightedAvgDurationMs'] - x) < 18750 * max(len(label), len(other_row['Genre'])) and abs(other_row['AvgEpisodes'] - y) < 10:
-                        if y > other_row['AvgEpisodes']:
-                            y += 6
-                        else:
-                            y -= 6
-                        break
-                ax.text(x + 40000, y, label, fontsize=8, va='center')
-
             ax.set_xlabel('Average Duration of Episodes')
-            ax.set_ylabel('Average Number of Episodes per Podcast')
+            ax.set_ylabel('Number of Episodes per Podcast')
             ax.set_title('Relationship between Average Duration and Number of Episodes by Genre')
-            ax.xaxis.set_major_locator(MultipleLocator(600000))
+            # log scale for both axes
+            ax.set_xscale('log')
+            ax.set_yscale('log')
             ax.xaxis.set_major_formatter(self._format_time)
+            # separate legend from plot (move it to the right)
             legend: Legend | None = ax.get_legend()
             if legend is not None:
                 legend.remove()
+                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
             fig.tight_layout()
             return fig
         
         return AnalyzerResult(data, render)
+    
+    # returns the average duration and average number of episodes of the podcasts in the rankings grouped by Podcasts.genre (if genre is not "Unknown")
+    def duration_vs_episode_count_by_genre(self) -> AnalyzerResult:
+        data: DataFrame = pd.read_sql_query('''
+            SELECT 
+                Genre, 
+                AVG(EpisodeCountPerPodcast) AS AvgEpisodes,
+                SUM(EpisodeCountPerPodcast * AvgDurationMsPerPodcast) / SUM(EpisodeCountPerPodcast) AS WeightedAvgDurationMs
+            FROM (
+                SELECT PodcastId, Genre, COUNT(*) AS EpisodeCountPerPodcast, AVG(Episodes.DurationMs) AS AvgDurationMsPerPodcast
+                FROM Episodes
+                INNER JOIN Podcasts ON Episodes.PodcastId = Podcasts.Id
+                WHERE Podcasts.Genre <> 'Unknown'
+                GROUP BY PodcastId
+            )
+            GROUP BY Genre;
+        ''', self._engine)
+        
+        return DurationGenreClassifierModel(self, data)
 
     # returns the average duration and average rank of the podcasts in all the rankings grouped by Podcasts.genre (if genre is not "Unknown")
     def duration_vs_rank_by_genre(self) -> AnalyzerResult:
