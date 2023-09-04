@@ -15,7 +15,8 @@ class PodcastEpisodeCountAnalyzer(PodcastAnalyzer):
     def capabilities(self) -> List[Callable[[], AnalyzerResult]]:
         return [
             self.episode_count_by_genre_and_region,
-            self.episode_count_global
+            self.episode_count_global,
+            self.episode_count_distribution
         ]
     
     # returns the average podcast episode count of the top 200 genres by region
@@ -106,12 +107,50 @@ class PodcastEpisodeCountAnalyzer(PodcastAnalyzer):
 
             fig, ax = plt.subplots()
             # Create a bar plot
-            sns.lineplot(data=data, x='AvgNumEpisodes', y='Probability', palette=self._palette + '_r', ax=ax)
+            sns.lineplot(data=data, x='AvgNumEpisodes', y='Probability', ax=ax)
             ax.set_xlabel('Average Episode Count')
             ax.set_ylabel('Probability')
             ax.set_title('Average Podcast Episode Count')
             # ax.yaxis.set_major_locator(MultipleLocator(600000))
             # ax.yaxis.set_major_formatter(self._format_time)
+            fig.tight_layout()
+            return fig
+        
+        return AnalyzerResult(data, render)
+    
+    # returns a distribution of the average podcast episode count
+    def episode_count_distribution(self) -> AnalyzerResult:
+        data = pd.read_sql_query('''
+        SELECT 
+            COUNT(*) AS Frequency,
+            EpisodeCount
+        FROM (
+            SELECT
+                Podcasts.Id AS PodcastId,
+                COUNT(Episodes.Id) AS EpisodeCount
+            FROM Podcasts
+            INNER JOIN Episodes ON Episodes.PodcastId = Podcasts.Id
+            GROUP BY Podcasts.Id
+        )
+        GROUP BY EpisodeCount
+        ORDER BY EpisodeCount;
+        ''', self._engine)
+
+        def render(result: AnalyzerResult) -> Figure:
+            data: DataFrame = result.get_data_frame()
+            # Set the style of seaborn
+            sns.set_theme(style=self._theme)
+
+            fig, ax = plt.subplots()
+            # Create a bar plot
+            sns.kdeplot(data=data, x='EpisodeCount', ax=ax)
+            ax.set_xlabel('Episode Count')
+            ax.set_ylabel('Frequency')
+            ax.set_title('Distribution of Podcast Episode Counts')
+            # add a vertical line at the mean
+            ax.axvline(data['EpisodeCount'].mean(), color='red', linestyle='dashed', linewidth=1)
+            # add corresponding labels with the mean value
+            ax.text(data['EpisodeCount'].mean() + 1, 0.0005, 'Mean: {:.2f}'.format(data['EpisodeCount'].mean()))
             fig.tight_layout()
             return fig
         

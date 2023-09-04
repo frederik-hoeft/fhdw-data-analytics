@@ -1,6 +1,7 @@
 from typing import Callable, List
 from matplotlib.dates import YearLocator
 from matplotlib.figure import Figure
+from matplotlib.ticker import MultipleLocator
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
@@ -16,7 +17,8 @@ class PodcastEpisodeTimeAnalyzer(PodcastAnalyzer):
     def capabilities(self) -> List[Callable[[], AnalyzerResult]]:
         return [
             self.episode_time_by_genre_and_region,
-            self.episode_time_global
+            self.episode_time_global,
+            self.episode_time_distribution
         ]
     
     # returns the average time passed in Months since the release of the first episode in the top 200 genres by region
@@ -108,7 +110,7 @@ class PodcastEpisodeTimeAnalyzer(PodcastAnalyzer):
 
             fig, ax = plt.subplots()
             # Create a bar plot
-            sns.lineplot(data=data, x='AvgTimePassed', y='Probability', palette=self._palette + '_r', ax=ax)
+            sns.lineplot(data=data, x='AvgTimePassed', y='Probability', ax=ax)
             ax.set_xlabel('Average Time Passed')
             ax.set_ylabel('Probability')
             ax.set_title('Average Time Passed since First Podcast Episode')
@@ -120,17 +122,23 @@ class PodcastEpisodeTimeAnalyzer(PodcastAnalyzer):
         return AnalyzerResult(data, render)
     
     # returns a distribution of the release months of the number of first podcast episodes released every month
-    def episode_time_absolute(self) -> AnalyzerResult:
+    def episode_time_distribution(self) -> AnalyzerResult:
         data: DataFrame = pd.read_sql_query(f'''
-            SELECT FirstReleaseMonth, COUNT(*) AS ReleaseCount 
+            SELECT FirstReleaseMonth AS Date, COUNT(*) AS Uploads 
             FROM (
                 SELECT 
                     strftime('%Y-%m', MIN(ReleaseDate)) AS FirstReleaseMonth
                 FROM Episodes
                 GROUP BY PodcastId)
-            GROUP BY FirstReleaseMonth
-            ORDER BY FirstReleaseMonth ASC
+            GROUP BY Date
+            ORDER BY Date ASC
         ''', self._engine)
+
+        data['Date'] = pd.to_datetime(data['Date'], format='%Y-%m')
+
+        # calculate the time passed since the the latest entry in the data and all other entries
+        # (How much time has passed since the first podcast episode was released and 'now' (the latest entry in the data))
+        data['Date'] = (data['Date'].max() - data['Date']).dt.days / 365.0
 
         def render(result: AnalyzerResult) -> Figure:
             data: DataFrame = result.get_data_frame()
@@ -139,11 +147,16 @@ class PodcastEpisodeTimeAnalyzer(PodcastAnalyzer):
 
             fig, ax = plt.subplots()
             # Create a bar plot
-            sns.lineplot(data=data, x='FirstReleaseMonth', y='ReleaseCount', palette=self._palette + '_r', ax=ax)
-            ax.set_xlabel('FirstReleaseMonth')
-            ax.set_ylabel('ReleaseCount')
-            ax.set_title('Average Time Passed since First Podcast Episode')
-            ax.xaxis.set_major_locator(YearLocator(base=1))
+            sns.kdeplot(data=data, x='Date', ax=ax)
+            ax.set_xlabel('Years Passed since First Release')
+            ax.set_ylabel('Number of First Releases')
+            ax.set_title('Number of First Podcast Episodes by Years Passed since First Release')
+            # add a vertical line at the mean
+            ax.axvline(data['Date'].mean(), color='red', linestyle='dashed', linewidth=1)
+            # add corresponding labels with the mean value
+            ax.text(data['Date'].mean() + 1, 0.0005, 'Mean: {:.2f} years'.format(data['Date'].mean()))
+            # hide negative values on the x-axis
+            ax.set_xlim(left=0)
             fig.tight_layout()
             return fig
         

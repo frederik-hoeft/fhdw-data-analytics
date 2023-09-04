@@ -6,6 +6,7 @@ import pandas as pd
 from pandas import DataFrame
 import matplotlib.pyplot as plt
 import seaborn as sns
+from analyzers.models.upload_frequency_model import UploadFrequencyModel
 from analyzers.internals.binary_search_wrapper import BinarySearchWrapper
 from analyzers.podcast_analyzer import PodcastAnalyzer
 from analyzers.internals.analyzer_result import AnalyzerResult
@@ -233,19 +234,5 @@ class PodcastUploadAnalyzer(PodcastAnalyzer):
         
         # Create a categorical column based on the year of the Date column
         data['Year'] = data['Date'].dt.year.astype(str)
-
-        def render(result: AnalyzerResult) -> Figure:
-            data: DataFrame = result.get_data_frame()
-            # Set the style of seaborn
-            sns.set_theme(style=self._theme)
-
-            fig, ax = plt.subplots() 
-            sns.lineplot(data=data, x='Date', y='RelativeUploads', hue='Year', palette=self._palette + '_r', ax=ax)
-            ax.set_title('Relative Uploads per Day (Uploads per Podcast per Day)')
-            ax.set_xlabel('Date')
-            ax.set_ylabel('Relative Uploads')
-            ax.xaxis.set_major_locator(YearLocator(base=1))
-            fig.tight_layout()
-            return fig
         
-        return AnalyzerResult(data, render)
+        return UploadFrequencyModel(self, data)

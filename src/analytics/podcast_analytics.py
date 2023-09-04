@@ -1,6 +1,8 @@
 from os import path
 import os
 from typing import Callable, List, Optional
+
+from analyzers.internals.analyzer_result import AnalyzerResultModel
 from github.github_release import GitHubRelease
 from analyzers.podcast_analyzer import PodcastAnalyzer
 from analyzers.internals.analyzer_result import AnalyzerResult
@@ -33,6 +35,9 @@ class PodcastAnalytics:
     
     def __filename_from_capability(self, capability: Callable[[], AnalyzerResult]) -> str:
         return self.__to_out_dir('podcast_' + capability.__name__ + '.png')
+    
+    def __filename_from_name(self, name: str) -> str:
+        return self.__to_out_dir('podcast_' + name + '.png')
 
     def set_style(self, theme: str, palette: str) -> None:
         self.__theme = theme
@@ -67,11 +72,19 @@ class PodcastAnalytics:
         with tqdm.tqdm(total=len(all_capabilities), unit='Cap') as pbar:
             for capability in all_capabilities:
                 pbar.set_description(f'Running {capability.__name__}...'.ljust(description_padding))
-                result = capability()
+                result: AnalyzerResult = capability()
                 with result.render() as rendered_result:
                     if visualize:
                         rendered_result.visualize()
                     rendered_result.save(self.__filename_from_capability(capability))
+                model: Optional[AnalyzerResultModel] = result.get_model()
+                if model is not None:
+                    visualizations = model.get_visualizations()
+                    for visualization, name in visualizations:
+                        with visualization.render() as rendered_visualization:
+                            if visualize:
+                                rendered_visualization.visualize()
+                            rendered_visualization.save(self.__filename_from_name(name))
                 pbar.update(1)
 
 if __name__ == '__main__':
