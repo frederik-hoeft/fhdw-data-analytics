@@ -298,8 +298,8 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
                 ax=ax
             )
             ax.set_xlabel('Average Duration of Episodes')
-            ax.set_ylabel('Number of Episodes per Podcast')
-            ax.set_title('Relationship between Average Duration and Number of Episodes by Genre')
+            ax.set_ylabel('Number of Episodes')
+            ax.set_title('Average Duration vs Number of Episodes by Genre')
             # log scale for both axes
             ax.set_xscale('log')
             ax.set_yscale('log')
