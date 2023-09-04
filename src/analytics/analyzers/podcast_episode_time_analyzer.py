@@ -1,4 +1,5 @@
 from typing import Callable, List
+from matplotlib.dates import YearLocator
 from matplotlib.figure import Figure
 import numpy as np
 import pandas as pd
@@ -113,6 +114,36 @@ class PodcastEpisodeTimeAnalyzer(PodcastAnalyzer):
             ax.set_title('Average Time Passed since First Podcast Episode')
             # ax.yaxis.set_major_locator(MultipleLocator(600000))
             # ax.yaxis.set_major_formatter(self._format_time)
+            fig.tight_layout()
+            return fig
+        
+        return AnalyzerResult(data, render)
+    
+    # returns a distribution of the release months of the number of first podcast episodes released every month
+    def episode_time_absolute(self) -> AnalyzerResult:
+        data: DataFrame = pd.read_sql_query(f'''
+            SELECT FirstReleaseMonth, COUNT(*) AS ReleaseCount 
+            FROM (
+                SELECT 
+                    strftime('%Y-%m', MIN(ReleaseDate)) AS FirstReleaseMonth
+                FROM Episodes
+                GROUP BY PodcastId)
+            GROUP BY FirstReleaseMonth
+            ORDER BY FirstReleaseMonth ASC
+        ''', self._engine)
+
+        def render(result: AnalyzerResult) -> Figure:
+            data: DataFrame = result.get_data_frame()
+            # Set the style of seaborn
+            sns.set_theme(style=self._theme)
+
+            fig, ax = plt.subplots()
+            # Create a bar plot
+            sns.lineplot(data=data, x='FirstReleaseMonth', y='ReleaseCount', palette=self._palette + '_r', ax=ax)
+            ax.set_xlabel('FirstReleaseMonth')
+            ax.set_ylabel('ReleaseCount')
+            ax.set_title('Average Time Passed since First Podcast Episode')
+            ax.xaxis.set_major_locator(YearLocator(base=1))
             fig.tight_layout()
             return fig
         
