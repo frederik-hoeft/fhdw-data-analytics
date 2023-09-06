@@ -69,7 +69,7 @@ class PodcastEpisodeCountAnalyzer(PodcastAnalyzer):
         return AnalyzerResult(data, render)
     
     # returns a probability distribution of the average podcast episode count
-    def episode_count_global(self) -> AnalyzerResult:
+    def episode_count_distribution_top_200(self) -> AnalyzerResult:
         data = pd.read_sql_query('''
         WITH AvgEpisodesDistribution AS (
             SELECT

@@ -71,7 +71,7 @@ class PodcastEpisodeTimeAnalyzer(PodcastAnalyzer):
         return AnalyzerResult(data, render)
     
     # returns a probability distribution of the average time passed since the first podcast episode
-    def episode_time_global(self) -> AnalyzerResult:
+    def episode_time_distribution_top_200(self) -> AnalyzerResult:
         data = pd.read_sql_query('''
         WITH AvgTimePassedDistribution AS (
             SELECT
@@ -113,7 +113,7 @@ class PodcastEpisodeTimeAnalyzer(PodcastAnalyzer):
             sns.lineplot(data=data, x='AvgTimePassed', y='Probability', ax=ax)
             ax.set_xlabel('Average Time Passed')
             ax.set_ylabel('Probability')
-            ax.set_title('Average Time Passed since First Podcast Episode')
+            ax.set_title('Average Time Passed since First Podcast Episode in Months')
             # ax.yaxis.set_major_locator(MultipleLocator(600000))
             # ax.yaxis.set_major_formatter(self._format_time)
             fig.tight_layout()
