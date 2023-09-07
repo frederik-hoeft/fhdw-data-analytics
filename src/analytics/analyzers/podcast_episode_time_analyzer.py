@@ -17,7 +17,7 @@ class PodcastEpisodeTimeAnalyzer(PodcastAnalyzer):
     def capabilities(self) -> List[Callable[[], AnalyzerResult]]:
         return [
             self.episode_time_by_genre_and_region,
-            self.episode_time_global,
+            self.episode_time_distribution_top_200,
             self.episode_time_distribution
         ]
     
@@ -25,7 +25,11 @@ class PodcastEpisodeTimeAnalyzer(PodcastAnalyzer):
     # Podcasts with Genre = 'Unknown' are excluded in the analysis
     def episode_time_by_genre_and_region(self) -> AnalyzerResult:
         data: DataFrame = pd.read_sql_query(f'''
-        select CAST(avg(TimePassed)/365*12 AS INT) as AvgTimePassed, subquery.Genre, subquery.Country, subquery.Rank
+        select 
+            CAST(avg(TimePassed)/365*12 AS INT) as AvgTimePassed, 
+            subquery.Genre, 
+            subquery.Country, 
+            subquery.Rank
         from (
             select CAST((JULIANDAY('now') - JULIANDAY(Episodes.ReleaseDate)) as INT) as TimePassed, Rankings.Genre, Rankings.Country, RankedPodcasts.Rank from Episodes
             inner join Podcasts on Podcasts.Id = Episodes.PodcastId

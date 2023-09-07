@@ -15,17 +15,24 @@ class PodcastEpisodeCountAnalyzer(PodcastAnalyzer):
     def capabilities(self) -> List[Callable[[], AnalyzerResult]]:
         return [
             self.episode_count_by_genre_and_region,
-            self.episode_count_global,
-            self.episode_count_distribution
+            self.episode_count_distribution,
+            self.episode_count_distribution_top_200
         ]
     
     # returns the average podcast episode count of the top 200 genres by region
     # Podcasts with Genre = 'Unknown' are excluded in the analysis
     def episode_count_by_genre_and_region(self) -> AnalyzerResult:
         data: DataFrame = pd.read_sql_query(f'''
-        SELECT subquery.genre as Genre, subquery.country as Country, (NumEpisodes/NumPublishers) as AvgNumEpisodes
+        SELECT 
+            subquery.genre as Genre, 
+            subquery.country as Country, 
+            (NumEpisodes/NumPublishers) as AvgNumEpisodes
         from (
-            select rankings.genre, rankings.country, COUNT(Distinct ShowPublisher) as NumPublishers, COUNT(Episodes.Id) as NumEpisodes from RankedPodcasts
+            select 
+                rankings.genre, 
+                rankings.country, 
+                COUNT(Distinct Podcasts.Id) as NumPublishers, 
+                COUNT(Episodes.Id) as NumEpisodes from RankedPodcasts
             inner join podcasts on Podcasts.Id = RankedPodcasts.PodcastId
             inner join rankings on Rankings.Id = RankedPodcasts.RankingId
             inner join Episodes on Episodes.PodcastId = Podcasts.Id
@@ -151,6 +158,8 @@ class PodcastEpisodeCountAnalyzer(PodcastAnalyzer):
             ax.axvline(data['EpisodeCount'].mean(), color='red', linestyle='dashed', linewidth=1)
             # add corresponding labels with the mean value
             ax.text(data['EpisodeCount'].mean() + 1, 0.0005, 'Mean: {:.2f}'.format(data['EpisodeCount'].mean()))
+            # hide negative values on the x-axis
+            ax.set_xlim(left=0)
             fig.tight_layout()
             return fig
         
