@@ -16,7 +16,7 @@ class PodcastEpisodeCountAnalyzer(PodcastAnalyzer):
         return [
             self.episode_count_by_genre_and_region,
             self.episode_count_distribution,
-            self.episode_count_distribution_top_200
+            self.episode_count_distribution_genre_all
         ]
     
     # returns the average podcast episode count of the top 200 genres by region
@@ -75,56 +75,6 @@ class PodcastEpisodeCountAnalyzer(PodcastAnalyzer):
         
         return AnalyzerResult(data, render)
     
-    # returns a probability distribution of the average podcast episode count
-    def episode_count_distribution_top_200(self) -> AnalyzerResult:
-        data = pd.read_sql_query('''
-        WITH AvgEpisodesDistribution AS (
-            SELECT
-                subquery.Genre AS Genre,
-                subquery.Country AS Country,
-                ROUND((NumEpisodes / NumPublishers) / 5) * 5 AS RoundedAvgNumEpisodes
-            FROM (
-                SELECT
-                    rankings.genre,
-                    rankings.country,
-                    COUNT(DISTINCT ShowPublisher) AS NumPublishers,
-                    COUNT(Episodes.Id) AS NumEpisodes
-                FROM RankedPodcasts
-                INNER JOIN Podcasts ON Podcasts.Id = RankedPodcasts.PodcastId
-                INNER JOIN Rankings ON Rankings.Id = RankedPodcasts.RankingId
-                INNER JOIN Episodes ON Episodes.PodcastId = Podcasts.Id
-                WHERE rankings.Genre != 'All'
-                GROUP BY rankings.genre, rankings.Country
-            ) AS subquery
-        )
-
-        SELECT
-            RoundedAvgNumEpisodes AS AvgNumEpisodes,
-            COUNT(*) AS Frequency,
-            1.0 * COUNT(*) / (SELECT COUNT(*) FROM AvgEpisodesDistribution) AS Probability
-        FROM AvgEpisodesDistribution
-        GROUP BY AvgNumEpisodes
-        ORDER BY AvgNumEpisodes;
-        ''', self._engine)
-
-        def render(result: AnalyzerResult) -> Figure:
-            data: DataFrame = result.get_data_frame()
-            # Set the style of seaborn
-            sns.set_theme(style=self._theme)
-
-            fig, ax = plt.subplots()
-            # Create a bar plot
-            sns.lineplot(data=data, x='AvgNumEpisodes', y='Probability', ax=ax)
-            ax.set_xlabel('Average Episode Count')
-            ax.set_ylabel('Probability')
-            ax.set_title('Average Podcast Episode Count')
-            # ax.yaxis.set_major_locator(MultipleLocator(600000))
-            # ax.yaxis.set_major_formatter(self._format_time)
-            fig.tight_layout()
-            return fig
-        
-        return AnalyzerResult(data, render)
-    
     # returns a distribution of the average podcast episode count
     def episode_count_distribution(self) -> AnalyzerResult:
         data = pd.read_sql_query('''
@@ -137,6 +87,49 @@ class PodcastEpisodeCountAnalyzer(PodcastAnalyzer):
                 COUNT(Episodes.Id) AS EpisodeCount
             FROM Podcasts
             INNER JOIN Episodes ON Episodes.PodcastId = Podcasts.Id
+            GROUP BY Podcasts.Id
+        )
+        GROUP BY EpisodeCount
+        ORDER BY EpisodeCount;
+        ''', self._engine)
+
+        def render(result: AnalyzerResult) -> Figure:
+            data: DataFrame = result.get_data_frame()
+            # Set the style of seaborn
+            sns.set_theme(style=self._theme)
+
+            fig, ax = plt.subplots()
+            # Create a bar plot
+            sns.kdeplot(data=data, x='EpisodeCount', ax=ax)
+            ax.set_xlabel('Episode Count')
+            ax.set_ylabel('Frequency')
+            ax.set_title('Distribution of Podcast Episode Counts')
+            # add a vertical line at the mean
+            ax.axvline(data['EpisodeCount'].mean(), color='red', linestyle='dashed', linewidth=1)
+            # add corresponding labels with the mean value
+            ax.text(data['EpisodeCount'].mean() + 1, 0.0005, 'Mean: {:.2f}'.format(data['EpisodeCount'].mean()))
+            # hide negative values on the x-axis
+            ax.set_xlim(left=0)
+            fig.tight_layout()
+            return fig
+        
+        return AnalyzerResult(data, render)
+    
+        # returns a distribution of the average podcast episode count
+    def episode_count_distribution_genre_all(self) -> AnalyzerResult:
+        data = pd.read_sql_query('''
+        SELECT 
+            COUNT(*) AS Frequency,
+            EpisodeCount
+        FROM (
+            SELECT
+                Podcasts.Id AS PodcastId,
+                COUNT(Episodes.Id) AS EpisodeCount
+            FROM Podcasts
+            INNER JOIN Episodes ON Episodes.PodcastId = Podcasts.Id
+			INNER JOIN RankedPodcasts on RankedPodcasts.PodcastId = Podcasts.Id
+            INNER JOIN Rankings on Rankings.Id = RankedPodcasts.RankingId
+            where Rankings.Genre = "All"
             GROUP BY Podcasts.Id
         )
         GROUP BY EpisodeCount
