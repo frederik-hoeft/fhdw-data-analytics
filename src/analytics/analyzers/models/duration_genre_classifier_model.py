@@ -62,7 +62,7 @@ class DurationGenreClassifierModel(AnalyzerResultModel):
 
         ax.set_xlabel('Average Duration of Episodes')
         ax.set_ylabel('Average Number of Episodes per Podcast')
-        ax.set_title('Relationship between Average Duration and Number of Episodes by Genre')
+        ax.set_title('Average Duration and Number of Episodes by Genre')
         ax.xaxis.set_major_locator(MultipleLocator(600000))
         ax.xaxis.set_major_formatter(self.__format_time)
         legend: Legend | None = ax.get_legend()

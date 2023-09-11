@@ -237,7 +237,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
 
             # Legend for the colorbar
             cbar_kws = {
-                'label': 'Average Podcast Duration',
+                'label': 'Avg Podcast Duration',
                 'format': self._format_time,
                 'ticks': np.linspace(abs_min, abs_max, 5)
             }
@@ -252,7 +252,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
                 cbar_kws=cbar_kws,
                 annot_kws={'alpha': 0.75})
             
-            cluster_grid.ax_heatmap.set_title('Correlation between Podcast Duration, Genre, and Region')
+            cluster_grid.ax_heatmap.set_title('Relation of Podcast Duration, Genre, and Region')
             cluster_grid.ax_heatmap.set_xlabel('Country')
             cluster_grid.ax_heatmap.set_ylabel('Genre')
 
@@ -398,7 +398,7 @@ class PodcastDurationAnalyzer(PodcastAnalyzer):
             
             ax.set_xlabel('Average Duration of Episodes')
             ax.set_ylabel('Average Rank')
-            ax.set_title('Relationship between Average Duration and Rank by Genre')
+            ax.set_title('Relation of Average Duration and Rank by Genre')
             ax.xaxis.set_major_locator(MultipleLocator(600000))
             ax.xaxis.set_major_formatter(self._format_time)
             legend: Legend | None = ax.get_legend()
