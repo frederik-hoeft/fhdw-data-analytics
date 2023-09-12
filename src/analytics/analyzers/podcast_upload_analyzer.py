@@ -29,13 +29,13 @@ class PodcastUploadAnalyzer(PodcastAnalyzer):
                 COUNT(*) AS Uploads,
                 DayOfWeek AS DayOfWeek,
                 CASE DayOfWeek
-                    WHEN '0' THEN 'Sunday'
-                    WHEN '1' THEN 'Monday'
-                    WHEN '2' THEN 'Tuesday'
-                    WHEN '3' THEN 'Wednesday'
-                    WHEN '4' THEN 'Thursday'
-                    WHEN '5' THEN 'Friday'
-                    WHEN '6' THEN 'Saturday'
+                    WHEN '0' THEN 'Sun'
+                    WHEN '1' THEN 'Mon'
+                    WHEN '2' THEN 'Tue'
+                    WHEN '3' THEN 'Wed'
+                    WHEN '4' THEN 'Thu'
+                    WHEN '5' THEN 'Fri'
+                    WHEN '6' THEN 'Sat'
                 END AS DayOfWeekName
             FROM Episodes
             INNER JOIN (
@@ -89,7 +89,7 @@ class PodcastUploadAnalyzer(PodcastAnalyzer):
             fig, ax = plt.subplots() 
             sns.lineplot(data=data, x='Date', y='Uploads', hue='Year', palette=self._palette + '_r', ax=ax)
             ax.set_title('Uploads per Day')
-            ax.set_xlabel('Date')
+            ax.set_xlabel('Year')
             ax.set_ylabel('Uploads')
             ax.xaxis.set_major_locator(YearLocator(base=1))
             fig.tight_layout()

@@ -32,7 +32,7 @@ class UploadFrequencyModel(AnalyzerResultModel):
         fig, ax = plt.subplots() 
         sns.lineplot(data=data, x='Date', y='RelativeUploads', hue='Year', palette=self._palette + '_r', ax=ax)
         ax.set_title('Relative Uploads per Day (Uploads per Podcast per Day)')
-        ax.set_xlabel('Date')
+        ax.set_xlabel('Year')
         ax.set_ylabel('Relative Uploads')
         ax.xaxis.set_major_locator(YearLocator(base=1))
         fig.tight_layout()
